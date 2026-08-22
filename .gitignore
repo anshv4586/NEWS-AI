@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Data output files (optional to ignore or keep)
+# data/
+
+# IDE / Editor settings
+.vscode/
+.idea/
+.DS_Store

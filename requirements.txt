@@ -1,0 +1,6 @@
+# Dependencies for Global News AI - Phase 1 (RSS Collection)
+
+feedparser>=6.0.10
+pandas>=2.0.0
+beautifulsoup4>=4.12.0
+python-dateutil>=2.8.2
