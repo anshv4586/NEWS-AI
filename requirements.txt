@@ -4,3 +4,17 @@ feedparser>=6.0.10
 pandas>=2.0.0
 beautifulsoup4>=4.12.0
 python-dateutil>=2.8.2
+
+# Phase 2 (MySQL Database & Storage)
+mysql-connector-python>=8.0.0
+python-dotenv>=1.0.0
+
+# Phase 3 (News Processing & Enrichment)
+langdetect>=1.0.9
+
+# Phase 4 (Embeddings & Vector Database)
+sentence-transformers>=2.2.2
+chromadb>=0.4.0
+
+
+

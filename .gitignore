@@ -8,8 +8,13 @@ __pycache__/
 venv/
 ENV/
 env/
+.env
+
+# Vector Database storage
+vector_db/
 
 # Data output files (optional to ignore or keep)
+
 # data/
 
 # IDE / Editor settings
