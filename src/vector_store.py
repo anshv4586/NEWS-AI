@@ -9,8 +9,15 @@ Cosine Similarity search, and metadata filtering.
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 import logging
-import chromadb
-from chromadb.config import Settings
+try:
+    import chromadb
+    from chromadb.config import Settings
+    HAS_CHROMADB = True
+except Exception:
+    chromadb = None
+    Settings = None
+    HAS_CHROMADB = False
+
 from src.embeddings import (
     create_embedding,
     create_embeddings_batch,
@@ -25,15 +32,19 @@ VECTOR_DB_DIR = Path(__file__).resolve().parent.parent / "vector_db"
 COLLECTION_NAME = "news_vectors"
 
 # Cached ChromaDB client & collection instances
-_CLIENT_INSTANCE: Optional[chromadb.PersistentClient] = None
+_CLIENT_INSTANCE: Optional[Any] = None
 _COLLECTION_INSTANCE: Optional[Any] = None
 
 
-def get_vector_client() -> chromadb.PersistentClient:
+def get_vector_client() -> Any:
     """
     Initializes and returns a persistent ChromaDB client instance stored in vector_db/.
     """
     global _CLIENT_INSTANCE
+    if not HAS_CHROMADB or chromadb is None:
+        logger.warning("ChromaDB library not installed. Vector store disabled.")
+        return None
+
     if _CLIENT_INSTANCE is None:
         VECTOR_DB_DIR.mkdir(parents=True, exist_ok=True)
         logger.info(f"Initializing ChromaDB PersistentClient at '{VECTOR_DB_DIR}'...")
@@ -46,14 +57,20 @@ def get_vector_collection() -> Any:
     Retrieves or creates the 'news_vectors' ChromaDB collection using Cosine Similarity.
     """
     global _COLLECTION_INSTANCE
+    if not HAS_CHROMADB or chromadb is None:
+        return None
+
     if _COLLECTION_INSTANCE is None:
         client = get_vector_client()
+        if not client:
+            return None
         logger.info(f"Getting or creating ChromaDB collection '{COLLECTION_NAME}' (Cosine Metric)...")
         _COLLECTION_INSTANCE = client.get_or_create_collection(
             name=COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},
         )
     return _COLLECTION_INSTANCE
+
 
 
 def add_or_update_articles(articles: List[Dict[str, Any]]) -> int:
@@ -68,6 +85,8 @@ def add_or_update_articles(articles: List[Dict[str, Any]]) -> int:
         return 0
 
     collection = get_vector_collection()
+    if not collection:
+        return 0
     
     ids = []
     documents = []
@@ -136,6 +155,9 @@ def search_similar_articles(
         return []
 
     collection = get_vector_collection()
+    if not collection:
+        return []
+
     query_vector = create_embedding(cleaned_query)
 
     # Query ChromaDB collection
@@ -188,4 +210,7 @@ def count_vectors() -> int:
     Returns total count of indexed vector documents in ChromaDB.
     """
     collection = get_vector_collection()
+    if not collection:
+        return 0
     return collection.count()
+

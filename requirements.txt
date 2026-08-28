@@ -1,36 +1,23 @@
-# Dependencies for Global News AI - Phase 1 (RSS Collection)
-
-feedparser>=6.0.10
-pandas>=2.0.0
-beautifulsoup4>=4.12.0
-python-dateutil>=2.8.2
-
-# Phase 2 (MySQL Database & Storage)
-mysql-connector-python>=8.0.0
-python-dotenv>=1.0.0
-
-# Phase 3 (News Processing & Enrichment)
-langdetect>=1.0.9
-
-# Phase 4 (Embeddings & Vector Database)
-sentence-transformers>=2.2.2
-chromadb>=0.4.0
-
-# Phase 5 & 7 (LLM APIs & Grounded RAG)
-google-genai>=0.1.0
-openai>=1.0.0
-
-# Phase 8 (Voice Interaction STT & TTS)
-SpeechRecognition>=3.10.0
-gTTS>=2.4.0
-pygame>=2.5.0
-PyAudio>=0.2.14
-
-# Phase 10 (FastAPI Backend & Web API)
+# Global News AI - Core Dependencies
 fastapi>=0.100.0
 uvicorn>=0.22.0
 pydantic>=2.0.0
 python-multipart>=0.0.6
 
+# Database & Environment
+mysql-connector-python>=8.0.0
+python-dotenv>=1.0.0
 
+# RSS Feed Processing & Utilities
+feedparser>=6.0.10
+pandas>=2.0.0
+beautifulsoup4>=4.12.0
+python-dateutil>=2.8.2
+langdetect>=1.0.9
 
+# LLM APIs (Gemini & OpenAI)
+google-genai>=0.1.0
+openai>=1.0.0
+
+# Audio / Voice Output
+gTTS>=2.4.0

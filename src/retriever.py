@@ -160,8 +160,14 @@ def retrieve_context_articles(
         vector_results = search_similar_articles(cleaned_query, top_k=candidate_k, filter_dict=None)
 
     if not vector_results:
-        logger.info("ChromaDB returned 0 vector matches.")
-        return []
+        logger.info("Vector search returned 0 matches. Falling back to MySQL database news query...")
+        try:
+            from src.news_repository import get_latest_news
+            db_news = get_latest_news(limit=top_k)
+            return db_news or []
+        except Exception as err:
+            logger.error(f"MySQL fallback query error: {err}")
+            return []
 
     # Step 2: Minimum similarity threshold filtering
     filtered_hits = [hit for hit in vector_results if hit["similarity_score"] >= min_score]

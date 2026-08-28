@@ -9,7 +9,12 @@ preparation, and single/batch vector embedding generation.
 from typing import Any, Dict, List, Optional
 import json
 import logging
-from sentence_transformers import SentenceTransformer
+try:
+    from sentence_transformers import SentenceTransformer
+    HAS_SENTENCE_TRANSFORMERS = True
+except Exception:
+    SentenceTransformer = None
+    HAS_SENTENCE_TRANSFORMERS = False
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +23,25 @@ DEFAULT_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v
 EMBEDDING_DIMENSION = 384
 
 # Module-level cached model instance (Singleton pattern)
-_MODEL_INSTANCE: Optional[SentenceTransformer] = None
+_MODEL_INSTANCE: Optional[Any] = None
 
 
-def get_embedding_model(model_name: str = DEFAULT_MODEL_NAME) -> SentenceTransformer:
+def get_embedding_model(model_name: str = DEFAULT_MODEL_NAME) -> Any:
     """
     Loads and caches the SentenceTransformer model instance.
     Reuses the existing model in memory to avoid reloading overhead.
     """
     global _MODEL_INSTANCE
+    if not HAS_SENTENCE_TRANSFORMERS or SentenceTransformer is None:
+        logger.warning("SentenceTransformers library not installed. Vector embeddings disabled.")
+        return None
+
     if _MODEL_INSTANCE is None:
         logger.info(f"Loading SentenceTransformer embedding model: '{model_name}'...")
         _MODEL_INSTANCE = SentenceTransformer(model_name)
         logger.info(f"Embedding model loaded successfully (Dimension: {EMBEDDING_DIMENSION}).")
     return _MODEL_INSTANCE
+
 
 
 def prepare_embedding_text(article: Dict[str, Any]) -> str:
@@ -75,6 +85,9 @@ def create_embedding(text: str) -> List[float]:
         return [0.0] * EMBEDDING_DIMENSION
 
     model = get_embedding_model()
+    if not model:
+        return [0.0] * EMBEDDING_DIMENSION
+
     embedding_vector = model.encode(text.strip(), convert_to_numpy=True).tolist()
     return embedding_vector
 
@@ -87,6 +100,9 @@ def create_embeddings_batch(texts: List[str], batch_size: int = 32) -> List[List
         return []
 
     model = get_embedding_model()
+    if not model:
+        return [[0.0] * EMBEDDING_DIMENSION for _ in texts]
+
     embeddings = model.encode(
         texts,
         batch_size=batch_size,
@@ -94,3 +110,4 @@ def create_embeddings_batch(texts: List[str], batch_size: int = 32) -> List[List
         convert_to_numpy=True,
     ).tolist()
     return embeddings
+
