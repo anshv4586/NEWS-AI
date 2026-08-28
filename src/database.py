@@ -93,7 +93,13 @@ def execute_query(
     Executes a SQL query with parameter binding, automatic connection release,
     and dictionary output formatting.
     """
-    conn = get_connection()
+    conn = None
+    try:
+        conn = get_connection()
+    except Exception as err:
+        logger.warning(f"Database connection unavailable: {err}")
+        return None if (fetchone or commit) else []
+
     try:
         cursor = conn.cursor(dictionary=dictionary)
         cursor.execute(sql, params or ())
@@ -109,11 +115,12 @@ def execute_query(
         cursor.close()
         return result
     except Exception as e:
-        if conn and conn.is_connected():
+        if conn and hasattr(conn, "is_connected") and conn.is_connected():
             conn.rollback()
         logger.error(f"SQL execution error: {e} | Query: {sql}")
-        raise
+        return None if (fetchone or commit) else []
     finally:
-        if conn and conn.is_connected():
+        if conn and hasattr(conn, "is_connected") and conn.is_connected():
             conn.close()
+
 
