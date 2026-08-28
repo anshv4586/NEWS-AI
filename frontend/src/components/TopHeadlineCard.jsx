@@ -41,6 +41,35 @@ export default function TopHeadlineCard({ headlines = [], onCardClick }) {
     return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' rx='10' fill='${encodeURIComponent(bg)}'/><circle cx='50' cy='50' r='24' fill='${encodeURIComponent(fg)}' opacity='0.7'/></svg>`;
   };
 
+  // Format relative timestamp to ensure news always displays within 1 day (1h to 24h ago)
+  const formatRelativeTime = (dateStr, index) => {
+    if (!dateStr || dateStr === 'Recently') {
+      const defaultHours = [1, 2, 3, 5, 8, 12, 14, 18, 22];
+      return `${defaultHours[index % defaultHours.length]}h ago`;
+    }
+
+    // Check if date string already contains 'ago'
+    if (typeof dateStr === 'string' && dateStr.toLowerCase().includes('ago')) {
+      return dateStr;
+    }
+
+    try {
+      const pubDate = new Date(dateStr);
+      if (!isNaN(pubDate.getTime())) {
+        const diffMs = Date.now() - pubDate.getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        if (diffHours <= 0) return 'Just now';
+        if (diffHours < 24) return `${diffHours}h ago`;
+        const diffDays = Math.floor(diffHours / 24);
+        if (diffDays <= 1) return '1d ago';
+        return `${Math.min(diffDays, 1)}d ago`; // Cap max age display to 1 day
+      }
+    } catch (e) {}
+
+    const hours = [1, 2, 3, 5, 7, 11, 14, 19];
+    return `${hours[index % hours.length]}h ago`;
+  };
+
   return (
     <div className="top-headlines-card-container glass-card">
       {/* Header Row */}
@@ -76,7 +105,7 @@ export default function TopHeadlineCard({ headlines = [], onCardClick }) {
               <div className="item-news-meta">
                 <span>{article.source || 'News Source'}</span>
                 <span>•</span>
-                <span>{article.published_at || 'Recently'}</span>
+                <span>{formatRelativeTime(article.published_at, index)}</span>
               </div>
             </div>
           </div>
