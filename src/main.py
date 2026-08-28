@@ -12,6 +12,7 @@ Run executable with:
 import logging
 import sys
 from collections import Counter
+from src.api.app import app
 from config.feeds import RSS_FEEDS
 from src.cleaner import deduplicate_articles
 from src.rss_collector import collect_all_feeds
