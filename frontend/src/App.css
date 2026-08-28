@@ -4,6 +4,7 @@
   max-width: 1320px;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 20px 24px 100px 24px;
   display: flex;
   flex-direction: column;
@@ -1770,10 +1771,17 @@
   }
 
   .btn-fullscreen-label {
-    display: none;
+    font-size: 0.72rem;
+    font-weight: 600;
   }
 
-  .fullscreen-toggle-btn, .theme-toggle-btn, .lang-pill-btn {
+  .fullscreen-toggle-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    min-height: 36px;
+  }
+
+  .theme-toggle-btn, .lang-pill-btn {
     padding: 5px 8px;
     font-size: 0.78rem;
   }
