@@ -1508,13 +1508,86 @@
   line-height: 1.4;
 }
 
-.login-btn-pill {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px;
-  font-size: 0.88rem;
+/* Mobile Optimization & Responsive Rules */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 12px 14px 90px 14px;
+  }
+
+  .app-header {
+    gap: 8px;
+    padding-bottom: 12px;
+  }
+
+  .brand-name, .brand-ai-badge {
+    font-size: 1.1rem;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .logo-icon-wrapper {
+    width: 32px;
+    height: 32px;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .lang-pill-btn, .theme-toggle-btn, .fullscreen-toggle-btn {
+    padding: 5px 10px;
+    font-size: 0.78rem;
+  }
+
+  .welcome-title {
+    font-size: 1.6rem;
+  }
+
+  .welcome-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .top-headline-card {
+    padding: 14px;
+  }
+
+  .headline-title {
+    font-size: 0.9rem;
+  }
+
+  .headline-thumbnail {
+    width: 54px;
+    height: 54px;
+  }
+
+  .toggle-top10-btn {
+    padding: 10px 14px;
+    font-size: 0.82rem;
+  }
+
+  .bottom-nav-container {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .nav-item {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .auth-modal-content {
+    width: 95%;
+    padding: 16px;
+  }
+
+  .otp-digit-box {
+    width: 40px;
+    height: 46px;
+    font-size: 1.2rem;
+  }
 }
+
 
 

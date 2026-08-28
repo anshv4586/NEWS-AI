@@ -320,6 +320,7 @@ def _rows_to_dicts(cursor, rows: List[tuple]) -> List[Dict[str, Any]]:
 def get_latest_news(limit: int = 10) -> List[Dict[str, Any]]:
     """
     Retrieves the most recent news articles sorted by publication time.
+    Falls back to live RSS feed collection if MySQL database is unreachable.
     """
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
@@ -327,16 +328,39 @@ def get_latest_news(limit: int = 10) -> List[Dict[str, Any]]:
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
-    conn = get_connection()
     try:
+        conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(query, (limit,))
         rows = cursor.fetchall()
         result = _rows_to_dicts(cursor, rows)
         cursor.close()
-        return result
-    finally:
         conn.close()
+        return result
+    except Exception as err:
+        logger.error(f"MySQL connection error in get_latest_news: {err}. Collecting live RSS feed fallback...")
+        try:
+            from config.feeds import RSS_FEEDS
+            from src.rss_collector import collect_all_feeds
+            raw = collect_all_feeds(RSS_FEEDS[:2])
+            fallback_list = []
+            for item in raw[:limit]:
+                fallback_list.append({
+                    "id": item.get("link", ""),
+                    "article_id": f"rss_{hashlib.md5((item.get('link') or '').encode()).hexdigest()[:8]}",
+                    "title": item.get("title", ""),
+                    "summary": item.get("summary", ""),
+                    "url": item.get("link", "#"),
+                    "source": item.get("source", "Global News"),
+                    "published_at": item.get("published", "Recently"),
+                    "category": "World",
+                    "language": "English",
+                    "country": "Global",
+                })
+            return fallback_list
+        except Exception as rss_err:
+            logger.error(f"RSS fallback error: {rss_err}")
+            return []
 
 
 def get_news_by_category(category: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -350,16 +374,19 @@ def get_news_by_category(category: str, limit: int = 10) -> List[Dict[str, Any]]
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
-    conn = get_connection()
     try:
+        conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(query, (category.strip(), limit))
         rows = cursor.fetchall()
         result = _rows_to_dicts(cursor, rows)
         cursor.close()
-        return result
-    finally:
         conn.close()
+        return result
+    except Exception as e:
+        logger.error(f"MySQL error in get_news_by_category: {e}")
+        return get_latest_news(limit=limit)
+
 
 
 def get_news_by_source(source: str, limit: int = 10) -> List[Dict[str, Any]]:
