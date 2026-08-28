@@ -52,7 +52,7 @@ export default function Header({ currentLang, onLangChange, theme, onThemeToggle
             <span className="brand-name">News</span>
             <span className="brand-ai-badge">AI</span>
           </div>
-          <p className="brand-subtitle">Your smart news companion</p>
+          <p className="brand-subtitle">Your World, Simplified.</p>
         </div>
       </div>
 

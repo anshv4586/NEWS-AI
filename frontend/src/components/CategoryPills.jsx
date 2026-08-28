@@ -1,8 +1,9 @@
 import React from 'react';
-import { LayoutGrid, Globe, Landmark, Briefcase, Cpu, Heart, Trophy, Film, Leaf } from 'lucide-react';
+import { TrendingUp, Globe, Landmark, Briefcase, Cpu, Heart, Trophy, Film, Leaf } from 'lucide-react';
 
 export default function CategoryPills({ selectedCategory, onSelectCategory }) {
   const categories = [
+    { id: null, label: 'Top Headlines', icon: TrendingUp },
     { id: 'World', label: 'World', icon: Globe },
     { id: 'India', label: 'India', icon: Landmark },
     { id: 'Business', label: 'Business', icon: Briefcase },
@@ -15,11 +16,6 @@ export default function CategoryPills({ selectedCategory, onSelectCategory }) {
 
   return (
     <div className="categories-section">
-      <div className="section-title">
-        <LayoutGrid size={18} className="grid-icon" />
-        <span>Categories</span>
-      </div>
-
       <div className="categories-scroll-wrapper">
         {categories.map((cat) => {
           const IconComponent = cat.icon;
@@ -27,7 +23,7 @@ export default function CategoryPills({ selectedCategory, onSelectCategory }) {
 
           return (
             <button
-              key={cat.id}
+              key={cat.label}
               className={`category-pill ${isSelected ? 'selected' : ''}`}
               onClick={() => onSelectCategory(cat.id)}
             >

@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MessageSquare, FileText, ShieldCheck, Volume2, Bookmark, Check, Sparkles, ExternalLink } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Send, Mic, Paperclip, Sparkles, Volume2, Bookmark, Check, ExternalLink } from 'lucide-react';
 
 export default function ChatSection({
   messages,
@@ -29,10 +29,14 @@ export default function ChatSection({
     }
   };
 
+  // Quick prompt chip click
+  const handleChipClick = (promptText) => {
+    onSendMessage(promptText);
+  };
+
   // Browser Speech Recording for Voice Input
   const handleMicClick = async () => {
     if (isRecording) {
-      // Stop recording
       if (mediaRecorderRef.current) {
         mediaRecorderRef.current.stop();
       }
@@ -130,20 +134,36 @@ export default function ChatSection({
         </div>
       )}
 
-      {/* Main Dark Input Box matching user's design image */}
+      {/* Main Dark Input Box matching exact user screenshot */}
       <div className="chat-input-container glass-card">
         <textarea
           className="chat-textarea"
-          placeholder="Ask News AI anything..."
+          placeholder="Ask anything about the news..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
-          rows={3}
+          rows={2}
         />
 
-        <div className="input-bottom-row">
+        <div className="input-bottom-actions-row">
+          <div className="input-left-buttons">
+            <button className="input-action-btn" title="Attach file">
+              <Paperclip size={14} />
+              <span>Attach</span>
+            </button>
+
+            <button
+              className={`input-action-btn ${isRecording ? 'recording' : ''}`}
+              onClick={handleMicClick}
+              title="Voice Input"
+            >
+              <Mic size={14} />
+              <span>{isRecording ? 'Listening...' : 'Voice'}</span>
+            </button>
+          </div>
+
           <button
-            className={`btn-send-circle ${inputText.trim() ? 'active' : ''}`}
+            className={`btn-send-circle-indigo ${inputText.trim() ? 'active' : ''}`}
             onClick={handleSend}
             disabled={!inputText.trim() || isLoading}
           >
@@ -152,28 +172,20 @@ export default function ChatSection({
         </div>
       </div>
 
-      {/* Quick Action Pills Row matching user's design */}
-      <div className="quick-actions-row">
-        <button className={`action-pill ${isRecording ? 'recording' : ''}`} onClick={handleMicClick}>
-          <Mic size={15} />
-          <span>{isRecording ? 'Listening...' : 'Voice Input'}</span>
+      {/* Quick Suggestion Prompt Chips matching exact screenshot */}
+      <div className="quick-prompt-chips-scroll">
+        <button className="prompt-chip" onClick={() => handleChipClick("Tell me the latest world news headlines")}>
+          Latest world news
         </button>
-
-        <button className="action-pill" onClick={onHindiPrompt}>
-          <MessageSquare size={15} />
-          <span>हिन्दी में पूछें</span>
+        <button className="prompt-chip" onClick={() => handleChipClick("What is happening in India today?")}>
+          News from India
         </button>
-
-        <button className="action-pill" onClick={onSummarize}>
-          <FileText size={15} />
-          <span>Summarize</span>
+        <button className="prompt-chip" onClick={() => handleChipClick("Show me top business & stock updates")}>
+          Business updates
         </button>
-      </div>
-
-      {/* Trust Subtext Badge matching user's design */}
-      <div className="trust-disclaimer-badge">
-        <ShieldCheck size={15} />
-        <span>News is AI-generated from trusted sources.</span>
+        <button className="prompt-chip" onClick={() => handleChipClick("What are the latest technology AI news?")}>
+          Tech news
+        </button>
       </div>
     </div>
   );

@@ -1,36 +1,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg-dark: #0d0d0f;
-  --bg-card: #151518;
-  --bg-card-alt: #19191d;
+  --bg-dark: #0a0b0e;
+  --bg-card: #14151c;
+  --bg-card-alt: #1a1b24;
   --bg-card-border: rgba(255, 255, 255, 0.08);
-  --bg-card-hover: #1c1c20;
-  --bg-modal: #16161a;
-  --bg-pill: #161619;
-  --bg-pill-hover: #1f1f24;
+  --bg-card-hover: #20212d;
+  --bg-modal: #15161e;
+  --bg-pill: #1c1d27;
+  --bg-pill-hover: #262735;
 
-  --accent-gold: #e5ad67;
-  --accent-gold-light: #f3ca93;
-  --accent-gold-dark: #c58f4a;
-  --accent-gold-glow: rgba(229, 173, 103, 0.18);
-  --accent-gold-border: rgba(229, 173, 103, 0.35);
+  --accent-gold: #6366f1;
+  --accent-indigo: #6366f1;
+  --accent-indigo-hover: #4f46e5;
+  --accent-gold-light: #818cf8;
+  --accent-gold-dark: #4338ca;
+  --accent-gold-glow: rgba(99, 102, 241, 0.3);
+  --accent-gold-border: rgba(99, 102, 241, 0.4);
 
-  --text-primary: #f0f0f3;
-  --text-secondary: #909098;
-  --text-gold: #e5ad67;
-  --text-muted: #62626a;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-gold: #818cf8;
+  --text-muted: #6b7280;
 
-  --font-serif: 'Playfair Display', serif;
+  --font-serif: 'Plus Jakarta Sans', sans-serif;
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   
   --radius-sm: 8px;
   --radius-md: 14px;
-  --radius-lg: 22px;
+  --radius-lg: 20px;
   --radius-pill: 9999px;
   
   --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 body.light, .app-container.light {
