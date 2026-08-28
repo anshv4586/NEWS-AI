@@ -1508,86 +1508,207 @@
   line-height: 1.4;
 }
 
-/* Mobile Optimization & Responsive Rules */
-@media (max-width: 768px) {
+/* Mobile Drawer Overlay Styles */
+.mobile-drawer-backdrop {
+  z-index: 1200;
+  display: flex;
+  justify-content: flex-start;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+}
+
+.mobile-drawer-content {
+  width: min(85vw, 340px);
+  height: 100vh;
+  background: var(--bg-modal);
+  border-right: 1px solid var(--bg-card-border);
+  border-radius: 0 !important;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: slideInLeft 0.25s ease-out;
+  overflow-y: auto;
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.mobile-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--bg-card-border);
+  padding-bottom: 12px;
+}
+
+.drawer-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.mobile-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mobile-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--bg-card-border);
+  color: var(--accent-gold);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.mobile-menu-btn:hover {
+  border-color: var(--accent-gold);
+  background: var(--bg-card-hover);
+}
+
+@media (min-width: 1024px) {
+  .mobile-menu-btn {
+    display: none;
+  }
+}
+
+/* Comprehensive Responsive Device Breakpoints */
+
+/* 1. Mobile Extra Small (320px - 374px) */
+@media (max-width: 374px) {
+  .app-container {
+    padding: 10px 10px 85px 10px;
+  }
+
+  .welcome-title {
+    font-size: 1.35rem;
+  }
+
+  .headline-thumbnail {
+    display: none;
+  }
+
+  .otp-digit-box {
+    width: 34px;
+    height: 42px;
+    font-size: 1.1rem;
+  }
+
+  .auth-type-tabs {
+    font-size: 0.78rem;
+  }
+}
+
+/* 2. Mobile Standard (375px - 767px) */
+@media (max-width: 767px) {
+  html, body {
+    overflow-x: hidden;
+  }
+
   .app-container {
     padding: 12px 14px 90px 14px;
-  }
-
-  .app-header {
-    gap: 8px;
-    padding-bottom: 12px;
-  }
-
-  .brand-name, .brand-ai-badge {
-    font-size: 1.1rem;
+    width: 100%;
   }
 
   .brand-subtitle {
     display: none;
   }
 
-  .logo-icon-wrapper {
-    width: 32px;
-    height: 32px;
+  .btn-fullscreen-label {
+    display: none;
   }
 
-  .header-actions {
-    gap: 6px;
+  .app-main-layout {
+    grid-template-columns: 1fr;
   }
 
-  .lang-pill-btn, .theme-toggle-btn, .fullscreen-toggle-btn {
-    padding: 5px 10px;
-    font-size: 0.78rem;
+  .desktop-sidebar-panel {
+    display: none;
+  }
+
+  .chat-sources-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 3. Tablets (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .app-container {
+    max-width: 94%;
+    padding: 18px 24px 95px 24px;
   }
 
   .welcome-title {
-    font-size: 1.6rem;
+    font-size: 1.9rem;
   }
 
-  .welcome-subtitle {
-    font-size: 0.82rem;
-  }
-
-  .top-headline-card {
-    padding: 14px;
-  }
-
-  .headline-title {
-    font-size: 0.9rem;
-  }
-
-  .headline-thumbnail {
-    width: 54px;
-    height: 54px;
-  }
-
-  .toggle-top10-btn {
-    padding: 10px 14px;
-    font-size: 0.82rem;
-  }
-
-  .bottom-nav-container {
-    padding: 6px 10px;
-    gap: 8px;
-  }
-
-  .nav-item {
-    padding: 6px 12px;
-    font-size: 0.78rem;
-  }
-
-  .auth-modal-content {
-    width: 95%;
-    padding: 16px;
-  }
-
-  .otp-digit-box {
-    width: 40px;
-    height: 46px;
-    font-size: 1.2rem;
+  .desktop-sidebar-panel {
+    display: none;
   }
 }
+
+/* 4. Laptops (1024px - 1439px) */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .app-container {
+    max-width: 1320px;
+    padding: 20px 24px 100px 24px;
+  }
+
+  .app-main-layout {
+    grid-template-columns: 1fr 340px;
+  }
+
+  .desktop-sidebar-panel {
+    display: flex;
+  }
+}
+
+/* 5. Desktop Monitors (1440px - 1919px) */
+@media (min-width: 1440px) and (max-width: 1919px) {
+  .app-container {
+    max-width: 1440px;
+    padding: 24px 36px 100px 36px;
+  }
+
+  .app-main-layout {
+    grid-template-columns: 1fr 380px;
+  }
+
+  .desktop-sidebar-panel {
+    display: flex;
+  }
+}
+
+/* 6. Ultra-Wide Large Screens (1920px+) */
+@media (min-width: 1920px) {
+  .app-container {
+    max-width: 1600px;
+    padding: 28px 48px 100px 48px;
+  }
+
+  .app-main-layout {
+    grid-template-columns: 1fr 420px;
+    gap: 32px;
+  }
+
+  .welcome-title {
+    font-size: 2.5rem;
+  }
+
+  .desktop-sidebar-panel {
+    display: flex;
+  }
+}
+
 
 
 

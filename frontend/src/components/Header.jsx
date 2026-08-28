@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Newspaper, Sun, Moon, ChevronDown, Maximize2, Minimize2 } from 'lucide-react';
+import { Newspaper, Sun, Moon, ChevronDown, Maximize2, Minimize2, Menu } from 'lucide-react';
 
-export default function Header({ currentLang, onLangChange, theme, onThemeToggle }) {
+export default function Header({ currentLang, onLangChange, theme, onThemeToggle, onOpenMobileDrawer }) {
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -36,6 +36,14 @@ export default function Header({ currentLang, onLangChange, theme, onThemeToggle
   return (
     <header className="app-header">
       <div className="header-brand">
+        <button
+          className="mobile-menu-btn"
+          onClick={onOpenMobileDrawer}
+          title="Open Navigation Menu"
+        >
+          <Menu size={20} />
+        </button>
+
         <div className="logo-icon-wrapper">
           <Newspaper className="logo-icon" size={22} />
         </div>

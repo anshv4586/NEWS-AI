@@ -7,6 +7,7 @@ import ChatSection from './components/ChatSection';
 import BottomNav from './components/BottomNav';
 import { HistoryModal, SavedModal, SettingsModal } from './components/Modals';
 import AuthModal from './components/AuthModal';
+import MobileDrawer from './components/MobileDrawer';
 import { History, Bookmark, Trash2, ExternalLink, Sparkles } from 'lucide-react';
 
 import {
@@ -39,6 +40,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authPromptMsg, setAuthPromptMsg] = useState('');
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   // Bookmarks
   const [savedArticles, setSavedArticles] = useState(() => {
@@ -250,6 +252,7 @@ export default function App() {
         onLangChange={handleLangChange}
         theme={theme}
         onThemeToggle={handleThemeToggle}
+        onOpenMobileDrawer={() => setIsMobileDrawerOpen(true)}
       />
 
       {/* Main Responsive Grid Layout */}
@@ -390,6 +393,16 @@ export default function App() {
           const userSaved = await fetchUserSavedArticles();
           if (userSaved) setSavedArticles(userSaved);
         }}
+      />
+
+      {/* Slide-Out Mobile Navigation Drawer */}
+      <MobileDrawer
+        isOpen={isMobileDrawerOpen}
+        onClose={() => setIsMobileDrawerOpen(false)}
+        chatSessions={chatSessions}
+        savedArticles={savedArticles}
+        onSelectSession={(id) => setConversationId(id)}
+        onRemoveSaved={handleRemoveSaved}
       />
     </div>
   );
