@@ -26,7 +26,7 @@ def get_llm_config():
     provider = os.getenv("LLM_PROVIDER", "gemini").lower().strip()
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
-    model_name = os.getenv("LLM_MODEL", "gemini-3.6-flash").strip()
+    model_name = os.getenv("LLM_MODEL", "gemini-2.5-flash").strip()
 
     return {
         "provider": provider,
@@ -40,18 +40,19 @@ def generate_answer_with_gemini(
     prompt: str,
     system_instruction: str,
     api_key: str,
-    model_name: str = "gemini-3.6-flash",
-
-
-
+    model_name: str = "gemini-2.5-flash",
     temperature: float = 0.2,
 ) -> str:
     """
-    Generates a response using Google Gemini API.
-    Supports both modern google-genai SDK and fallback google-generativeai SDK.
+    Generates a response using Google Gemini API with automatic retry on rate limits.
     """
+    import time
     if not api_key or api_key == "your_gemini_api_key_here":
         raise ValueError("Gemini API key is not configured in .env file.")
+
+    models_to_try = [model_name]
+
+    last_exception = None
 
     # Try modern google-genai SDK first
     try:
@@ -63,34 +64,42 @@ def generate_answer_with_gemini(
             system_instruction=system_instruction,
             temperature=temperature,
         )
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=config,
-        )
-        if response and response.text:
-            return response.text.strip()
-        else:
-            raise ValueError("Gemini API returned an empty text response.")
+
+        for current_model in models_to_try:
+            try:
+                logger.info(f"Sending prompt to Gemini API model: '{current_model}'...")
+                response = client.models.generate_content(
+                    model=current_model,
+                    contents=prompt,
+                    config=config,
+                )
+                if response and response.text:
+                    return response.text.strip()
+            except Exception as err:
+                logger.error(f"Gemini API model '{current_model}' generation error: {err}")
+                raise err
 
     except ImportError:
         # Fallback to google-generativeai legacy SDK
         try:
             import google.generativeai as genai
-
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=system_instruction,
-            )
-            response = model.generate_content(
-                prompt,
-                generation_config={"temperature": temperature},
-            )
-            if response and response.text:
-                return response.text.strip()
-            else:
-                raise ValueError("Gemini API returned an empty text response.")
+
+            for current_model in models_to_try:
+                try:
+                    model = genai.GenerativeModel(
+                        model_name=current_model,
+                        system_instruction=system_instruction,
+                    )
+                    response = model.generate_content(
+                        prompt,
+                        generation_config={"temperature": temperature},
+                    )
+                    if response and response.text:
+                        return response.text.strip()
+                except Exception as err:
+                    logger.error(f"Gemini legacy SDK model '{current_model}' error: {err}")
+                    raise err
         except Exception as err:
             logger.error(f"Gemini LLM Generation Error: {err}")
             raise
@@ -136,26 +145,68 @@ def generate_grounded_answer(
     temperature: float = 0.2,
 ) -> str:
     """
-    Master function to dispatch prompt and system instructions to configured LLM provider.
+    Master function to dispatch prompt and system instructions to configured LLM provider,
+    with automatic provider fallback between Gemini and OpenAI if one hits quota/rate limits.
     """
     config = get_llm_config()
     provider = config["provider"]
+    gemini_key = config["gemini_api_key"]
+    openai_key = config["openai_api_key"]
 
     if provider == "gemini":
-        return generate_answer_with_gemini(
-            prompt=prompt,
-            system_instruction=system_instruction,
-            api_key=config["gemini_api_key"],
-            model_name=config["model"],
-            temperature=temperature,
-        )
+        try:
+            return generate_answer_with_gemini(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                api_key=gemini_key,
+                model_name=config["model"] if "gemini" in config["model"] else "gemini-2.5-flash",
+                temperature=temperature,
+            )
+        except Exception as primary_err:
+            if openai_key and openai_key != "your_openai_api_key_here":
+                logger.warning(
+                    f"[LLM Provider Fallback] Primary provider 'gemini' failed ({primary_err}). "
+                    f"Falling back to secondary provider 'openai'..."
+                )
+                try:
+                    return generate_answer_with_openai(
+                        prompt=prompt,
+                        system_instruction=system_instruction,
+                        api_key=openai_key,
+                        model_name="gpt-4o-mini",
+                        temperature=temperature,
+                    )
+                except Exception as secondary_err:
+                    logger.error(f"[LLM Provider Fallback] Secondary provider 'openai' also failed: {secondary_err}")
+                    raise secondary_err
+            raise primary_err
+
     elif provider == "openai":
-        return generate_answer_with_openai(
-            prompt=prompt,
-            system_instruction=system_instruction,
-            api_key=config["openai_api_key"],
-            model_name=config["model"],
-            temperature=temperature,
-        )
+        try:
+            return generate_answer_with_openai(
+                prompt=prompt,
+                system_instruction=system_instruction,
+                api_key=openai_key,
+                model_name=config["model"] if "gpt" in config["model"] else "gpt-4o-mini",
+                temperature=temperature,
+            )
+        except Exception as primary_err:
+            if gemini_key and gemini_key != "your_gemini_api_key_here":
+                logger.warning(
+                    f"[LLM Provider Fallback] Primary provider 'openai' failed ({primary_err}). "
+                    f"Falling back to secondary provider 'gemini'..."
+                )
+                try:
+                    return generate_answer_with_gemini(
+                        prompt=prompt,
+                        system_instruction=system_instruction,
+                        api_key=gemini_key,
+                        model_name="gemini-2.5-flash",
+                        temperature=temperature,
+                    )
+                except Exception as secondary_err:
+                    logger.error(f"[LLM Provider Fallback] Secondary provider 'gemini' also failed: {secondary_err}")
+                    raise secondary_err
+            raise primary_err
     else:
         raise ValueError(f"Unsupported LLM provider '{provider}'. Choose 'gemini' or 'openai'.")

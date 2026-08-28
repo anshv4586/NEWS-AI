@@ -73,6 +73,7 @@ def sanitize_article_dict(article: Dict[str, Any]) -> Dict[str, Any]:
         "country": country,
         "keywords": keywords,
         "quality_status": quality_status,
+        "embedding_status": article.get("embedding_status", "pending"),
     }
 
 
@@ -125,26 +126,30 @@ def insert_news(article: Dict[str, Any]) -> bool:
         conn.close()
 
 
-def insert_many_news(articles: List[Dict[str, Any]]) -> Dict[str, int]:
+def insert_many_news(articles: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Batch inserts a list of enriched articles into MySQL with duplicate prevention.
-    Returns dictionary with counts: {"inserted": X, "skipped": Y, "total": Z}.
+    Returns dictionary with counts and list of newly inserted articles:
+    {"inserted": X, "skipped": Y, "total": Z, "new_articles": [...]}.
     """
     if not articles:
-        return {"inserted": 0, "skipped": 0, "total": 0}
+        return {"inserted": 0, "skipped": 0, "total": 0, "new_articles": []}
 
     query = """
         INSERT IGNORE INTO news (
-            article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status
+            article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, embedding_status
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         );
     """
 
     param_list = []
+    sanitized_articles = []
+
     for art in articles:
         sanitized = sanitize_article_dict(art)
         if sanitized["url"] and sanitized["title"]:
+            sanitized_articles.append(sanitized)
             param_list.append((
                 sanitized["article_id"],
                 sanitized["title"],
@@ -158,19 +163,23 @@ def insert_many_news(articles: List[Dict[str, Any]]) -> Dict[str, int]:
                 sanitized["country"],
                 sanitized["keywords"],
                 sanitized["quality_status"],
+                sanitized["embedding_status"],
             ))
 
     if not param_list:
-        return {"inserted": 0, "skipped": 0, "total": len(articles)}
+        return {"inserted": 0, "skipped": 0, "total": len(articles), "new_articles": []}
 
     conn = get_connection()
     inserted_count = 0
+    new_articles = []
+
     try:
         cursor = conn.cursor()
-        for params in param_list:
+        for idx, params in enumerate(param_list):
             cursor.execute(query, params)
             if cursor.rowcount > 0:
                 inserted_count += 1
+                new_articles.append(sanitized_articles[idx])
         conn.commit()
         cursor.close()
         skipped_count = len(param_list) - inserted_count
@@ -178,11 +187,67 @@ def insert_many_news(articles: List[Dict[str, Any]]) -> Dict[str, int]:
             "inserted": inserted_count,
             "skipped": skipped_count,
             "total": len(articles),
+            "new_articles": new_articles,
         }
     except Exception as e:
         conn.rollback()
         logger.error(f"Error during batch news insertion: {e}")
         raise
+    finally:
+        conn.close()
+
+
+def update_embedding_status(article_ids: List[str], status: str = "completed") -> int:
+    """
+    Updates embedding_status in MySQL for a batch of article_ids after ChromaDB vector indexing.
+    """
+    if not article_ids:
+        return 0
+
+    format_strings = ",".join(["%s"] * len(article_ids))
+    query = f"UPDATE news SET embedding_status = %s WHERE article_id IN ({format_strings});"
+    params = [status] + list(article_ids)
+
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        updated_count = cursor.rowcount
+        conn.commit()
+        cursor.close()
+        logger.info(f"Updated embedding_status to '{status}' for {updated_count} articles.")
+        return updated_count
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error updating embedding_status: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def get_pending_embedding_articles(limit: int = 100) -> List[Dict[str, Any]]:
+    """
+    Retrieves articles from MySQL that are marked as 'pending' for embedding generation.
+    Enforces eventual consistency if a previous vector DB insertion failed.
+    """
+    query = """
+        SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, embedding_status
+        FROM news
+        WHERE embedding_status = 'pending' OR embedding_status IS NULL
+        ORDER BY id ASC
+        LIMIT %s;
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor()
+        cursor.execute(query, (limit,))
+        rows = cursor.fetchall()
+        result = _rows_to_dicts(cursor, rows)
+        cursor.close()
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching pending embedding articles: {e}")
+        return []
     finally:
         conn.close()
 

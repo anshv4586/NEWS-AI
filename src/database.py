@@ -79,3 +79,41 @@ def test_connection() -> bool:
     except Exception as e:
         logger.error(f"MySQL connection test failed: {e}")
         return False
+
+
+def execute_query(
+    sql: str,
+    params: Optional[tuple] = None,
+    fetchone: bool = False,
+    fetchall: bool = False,
+    commit: bool = False,
+    dictionary: bool = True,
+):
+    """
+    Executes a SQL query with parameter binding, automatic connection release,
+    and dictionary output formatting.
+    """
+    conn = get_connection()
+    try:
+        cursor = conn.cursor(dictionary=dictionary)
+        cursor.execute(sql, params or ())
+        result = None
+        if fetchone:
+            result = cursor.fetchone()
+        elif fetchall:
+            result = cursor.fetchall()
+
+        if commit:
+            conn.commit()
+
+        cursor.close()
+        return result
+    except Exception as e:
+        if conn and conn.is_connected():
+            conn.rollback()
+        logger.error(f"SQL execution error: {e} | Query: {sql}")
+        raise
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+

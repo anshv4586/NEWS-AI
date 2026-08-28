@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-dark: #0d0d0f;
+  --bg-card: #151518;
+  --bg-card-alt: #19191d;
+  --bg-card-border: rgba(255, 255, 255, 0.08);
+  --bg-card-hover: #1c1c20;
+  --bg-modal: #16161a;
+  --bg-pill: #161619;
+  --bg-pill-hover: #1f1f24;
+
+  --accent-gold: #e5ad67;
+  --accent-gold-light: #f3ca93;
+  --accent-gold-dark: #c58f4a;
+  --accent-gold-glow: rgba(229, 173, 103, 0.18);
+  --accent-gold-border: rgba(229, 173, 103, 0.35);
+
+  --text-primary: #f0f0f3;
+  --text-secondary: #909098;
+  --text-gold: #e5ad67;
+  --text-muted: #62626a;
+
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-pill: 9999px;
+  
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+body.light, .app-container.light {
+  --bg-dark: #f2f3f7;
+  --bg-card: #ffffff;
+  --bg-card-alt: #f7f8fc;
+  --bg-card-border: rgba(0, 0, 0, 0.09);
+  --bg-card-hover: #f0f1f6;
+  --bg-modal: #ffffff;
+  --bg-pill: #e6e8ee;
+  --bg-pill-hover: #dadde5;
+
+  --accent-gold: #b57627;
+  --accent-gold-light: #c88937;
+  --accent-gold-dark: #8c5717;
+  --accent-gold-glow: rgba(181, 118, 39, 0.2);
+  --accent-gold-border: rgba(181, 118, 39, 0.35);
+
+  --text-primary: #111215;
+  --text-secondary: #555765;
+  --text-gold: #b57627;
+  --text-muted: #858796;
+  --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Smooth Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: #25252a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-gold);
+}
+
+/* Common UI Glass Card */
+.glass-card {
+  background: var(--bg-card);
+  border: 1px solid var(--bg-card-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  transition: var(--transition);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Gold Accent Pill Button */
+.btn-gold-pill {
+  background: linear-gradient(135deg, rgba(229, 173, 103, 0.15) 0%, rgba(229, 173, 103, 0.05) 100%);
+  border: 1px solid var(--accent-gold-border);
+  color: var(--accent-gold);
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-gold-pill:hover {
+  background: linear-gradient(135deg, rgba(229, 173, 103, 0.25) 0%, rgba(229, 173, 103, 0.1) 100%);
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 16px var(--accent-gold-glow);
+  transform: translateY(-1px);
+}
