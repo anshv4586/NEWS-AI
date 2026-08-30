@@ -38,15 +38,28 @@ class NewsArticleResponse(BaseModel):
 
 def filter_real_news(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Filters out test/synthetic articles (e.g. Minimal Article, Test Source, Phase 9 Test) from user-facing API responses.
+    Filters out test/synthetic articles AND empty-summary articles so that only
+    informative, high-quality news articles with substantial details are shown to users.
     """
     real_articles = []
     for art in articles:
         source = (art.get("source") or "").lower()
         title = (art.get("title") or "").lower()
+        summary = (art.get("summary") or "").strip()
+        quality = art.get("quality_status")
+
+        # Exclude mock/test artifacts
         if any(w in source for w in ["test", "unittest", "minimal", "mock", "demo", "sample"]) or \
            any(w in title for w in ["test headline", "minimal article", "automated test", "test news"]):
             continue
+
+        # Exclude articles without real summary details (< 40 characters)
+        if not summary or len(summary) < 40 or summary.lower() == title.lower():
+            continue
+
+        if quality in ("invalid", "needs_review"):
+            continue
+
         real_articles.append(art)
     return real_articles
 

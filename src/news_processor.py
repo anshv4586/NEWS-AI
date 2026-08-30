@@ -268,6 +268,7 @@ def extract_keywords(title: str, summary: str = "", top_n: int = 5) -> List[str]
 def calculate_quality(article: Dict[str, Any]) -> str:
     """
     Assigns quality rating: 'valid', 'needs_review', or 'invalid'.
+    Only articles with a clear headline AND at least 40 characters of substantive summary are marked 'valid'.
     """
     is_valid, _ = validate_article(article)
     if not is_valid:
@@ -276,8 +277,8 @@ def calculate_quality(article: Dict[str, Any]) -> str:
     title = clean_text(article.get("title"))
     summary = clean_text(article.get("summary"))
 
-    # If title is suspiciously short or missing summary entirely
-    if len(title) < 15 or not summary:
+    # If title is suspiciously short, or missing substantive summary, or summary is just duplicate title
+    if len(title) < 15 or not summary or len(summary) < 40 or summary.strip().lower() == title.strip().lower():
         return "needs_review"
 
     return "valid"

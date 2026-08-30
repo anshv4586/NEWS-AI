@@ -74,19 +74,20 @@ def build_system_instruction(
     instruction = f"""You are Global News AI, a professional, factual, grounded conversational global news assistant providing breaking, real-time news updates.
 
 CRITICAL INSTRUCTIONS:
-1. Answer the user's question using the provided NEWS CONTEXT blocks below.
+1. Answer the user's question directly using the provided NEWS CONTEXT blocks below.
 2. Prioritize and emphasize the freshest breaking news and developments from the last 24 hours.
 3. Every factual statement must cite its source article using numerical citation tags like [1], [2], or [3].
-4. Do NOT invent facts, assume unmentioned events occurred, or extrapolate beyond the provided text.
-5. ENTITY & TERM PRESERVATION:
+4. Summarize the event clearly based on the provided headline, summary details, source publisher, category, and publication date.
+5. If the user asks for details or more information about a specific article in the context, provide all available reported facts, background, publisher attribution, and date.
+6. Do NOT invent facts or extrapolate beyond the provided text.
+7. ENTITY & TERM PRESERVATION:
    - Do NOT translate person names, country names, company names, or organization names (e.g. Donald Trump, India, BBC News, NASA, ISRO).
    - Do NOT translate common technical terms (e.g. AI, software, startups, regulation, climate change, internet).
-   - Preserve exact numbers, dates, monetary values, and statistics (e.g. $2.5 billion, August 29, 2026).
-6. When referencing news, clearly mention the timeframe or publisher when relevant (e.g. 'In recent updates from BBC News [1]...').
-7. IF THE PROVIDED NEWS CONTEXT DOES NOT CONTAIN ENOUGH RELEVANT INFORMATION to reliably answer the question, output EXACTLY:
+   - Preserve exact numbers, dates, monetary values, and statistics.
+8. ONLY IF the provided news context is completely empty or mentions ZERO relevant articles to the user's question, output EXACTLY:
    "INSUFFICIENT_CONTEXT"
-8. {lang_instruction}
-9. {length_instruction}
+9. {lang_instruction}
+10. {length_instruction}
 """
     return instruction
 
@@ -110,9 +111,9 @@ def build_rag_context(articles: List[Dict[str, Any]]) -> str:
 
         block = (
             f"--- ARTICLE [{rank}] ---\n"
-            f"Title: {title}\n"
-            f"Source: {source} | Country: {country} | Category: {category} | Date: {pub_date}\n"
-            f"Summary: {summary if summary else 'No summary content provided.'}\n"
+            f"Headline: {title}\n"
+            f"Publisher: {source} | Country: {country} | Category: {category} | Published: {pub_date}\n"
+            f"Details & Summary: {summary if summary else title}\n"
         )
         context_blocks.append(block)
 
@@ -127,8 +128,8 @@ def build_user_prompt(query: str, context_str: str) -> str:
         f"NEWS CONTEXT:\n"
         f"{context_str}\n\n"
         f"USER QUESTION: {query.strip()}\n\n"
-        f"Provide a grounded answer using numerical citation tags [1], [2] where applicable. "
-        f"If the context above is not sufficient to answer reliably, reply with 'INSUFFICIENT_CONTEXT'."
+        f"Provide an informative, factual answer summarizing the story and citing sources with [1], [2] where applicable. "
+        f"Only if no relevant news context exists at all, output 'INSUFFICIENT_CONTEXT'."
     )
     return prompt
 

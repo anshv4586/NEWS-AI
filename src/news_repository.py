@@ -465,13 +465,16 @@ def refresh_live_news(max_feeds: Optional[int] = None, fast_mode: bool = True) -
 def get_latest_news(limit: int = 10, force_refresh: bool = False) -> List[Dict[str, Any]]:
     """
     Retrieves the most recent news articles strictly sorted by publication time.
-    Guarantees instant response using seed data and non-blocking RSS refreshes.
+    Guarantees that all returned articles have substantive, verified summary content.
     """
     import time
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE published_at IS NOT NULL
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
+          AND quality_status != 'invalid'
         ORDER BY published_at DESC
         LIMIT %s;
     """
@@ -519,12 +522,15 @@ def get_latest_news(limit: int = 10, force_refresh: bool = False) -> List[Dict[s
 
 def get_news_by_category(category: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Retrieves latest news articles matching a specific category taxonomy.
+    Retrieves latest news articles matching a specific category taxonomy with substantive summaries.
     """
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE LOWER(category) = LOWER(%s)
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
+          AND quality_status != 'invalid'
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
@@ -545,12 +551,15 @@ def get_news_by_category(category: str, limit: int = 10) -> List[Dict[str, Any]]
 
 def get_news_by_source(source: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Retrieves latest news articles matching a specific source publisher (e.g. 'BBC News').
+    Retrieves latest news articles matching a specific source publisher with substantive summaries.
     """
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE LOWER(source) = LOWER(%s)
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
+          AND quality_status != 'invalid'
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
@@ -568,12 +577,15 @@ def get_news_by_source(source: str, limit: int = 10) -> List[Dict[str, Any]]:
 
 def get_news_by_language(language: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Retrieves latest news articles matching a specific language (e.g. 'English').
+    Retrieves latest news articles matching a specific language with substantive summaries.
     """
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE LOWER(language) = LOWER(%s)
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
+          AND quality_status != 'invalid'
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
@@ -592,12 +604,15 @@ def get_news_by_language(language: str, limit: int = 10) -> List[Dict[str, Any]]
 
 def get_news_by_country(country: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Retrieves latest news articles matching a specific country.
+    Retrieves latest news articles matching a specific country with substantive summaries.
     """
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE LOWER(country) = LOWER(%s)
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
+          AND quality_status != 'invalid'
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
@@ -621,6 +636,8 @@ def get_news_by_quality(quality_status: str = "valid", limit: int = 10) -> List[
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE quality_status = %s
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
@@ -638,12 +655,15 @@ def get_news_by_quality(quality_status: str = "valid", limit: int = 10) -> List[
 
 def get_today_news(limit: int = 50) -> List[Dict[str, Any]]:
     """
-    Retrieves news articles published or ingested today.
+    Retrieves news articles published or ingested today with substantive summaries.
     """
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE DATE(COALESCE(published_at, created_at)) = CURDATE()
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
+          AND quality_status != 'invalid'
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """
@@ -661,12 +681,15 @@ def get_today_news(limit: int = 50) -> List[Dict[str, Any]]:
 
 def get_recent_news(hours: int = 24, limit: int = 50) -> List[Dict[str, Any]]:
     """
-    Retrieves news articles published or ingested within the past N hours.
+    Retrieves news articles published or ingested within the past N hours with substantive summaries.
     """
     query = """
         SELECT id, article_id, title, summary, url, source, published_at, author, category, language, country, keywords, quality_status, created_at, updated_at
         FROM news
         WHERE COALESCE(published_at, created_at) >= NOW() - INTERVAL %s HOUR
+          AND summary IS NOT NULL
+          AND LENGTH(TRIM(summary)) >= 40
+          AND quality_status != 'invalid'
         ORDER BY COALESCE(published_at, created_at) DESC
         LIMIT %s;
     """

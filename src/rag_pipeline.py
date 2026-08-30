@@ -11,7 +11,12 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 from src.query_processor import process_query
 from src.language_detector import check_explicit_language_override
 from src.conversation_manager import ConversationState, rewrite_follow_up_query
-from src.retriever import retrieve_context_articles, DEFAULT_TOP_K, DEFAULT_SIMILARITY_THRESHOLD
+from src.retriever import (
+    retrieve_context_articles,
+    find_article_by_headline_match,
+    DEFAULT_TOP_K,
+    DEFAULT_SIMILARITY_THRESHOLD,
+)
 from src.context_builder import (
     apply_broad_news_diversity,
     build_system_instruction,
@@ -183,27 +188,34 @@ def answer_conversational_news(
             }
         search_query = cleaned_query
     else:
-        # Step 4: Standalone Query Rewriting
-        search_query = rewrite_follow_up_query(cleaned_query, parsed, state)
-        state.update_from_query(parsed)
+        # Step 3.5: Direct Headline Match (e.g. user clicked a Top Headline card or quoted a headline)
+        headline_match = find_article_by_headline_match(cleaned_query)
+        if headline_match:
+            logger.info(f"[Conversational RAG] Exact headline card matched: '{headline_match.get('title')}'")
+            retrieved_articles = [headline_match]
+            search_query = cleaned_query
+        else:
+            # Step 4: Standalone Query Rewriting
+            search_query = rewrite_follow_up_query(cleaned_query, parsed, state)
+            state.update_from_query(parsed)
 
-        country_filter = parsed.get("country")
-        category_filter = parsed.get("category")
-        time_range = parsed.get("time_range", "all")
+            country_filter = parsed.get("country")
+            category_filter = parsed.get("category")
+            time_range = parsed.get("time_range", "all")
 
-        # Step 5: Multilingual Hybrid Retrieval + Metadata Filtering + Recency Ranking
-        retrieved_articles = retrieve_context_articles(
-            query=search_query,
-            top_k=top_k,
-            min_score=min_score,
-            country=country_filter,
-            category=category_filter,
-            time_range=time_range,
-        )
+            # Step 5: Multilingual Hybrid Retrieval + Metadata Filtering + Recency Ranking
+            retrieved_articles = retrieve_context_articles(
+                query=search_query,
+                top_k=top_k,
+                min_score=min_score,
+                country=country_filter,
+                category=category_filter,
+                time_range=time_range,
+            )
 
-        # Step 6: Broad News Diversity Filter for General Queries
-        if q_type in ("general_news", "latest_news"):
-            retrieved_articles = apply_broad_news_diversity(retrieved_articles)
+            # Step 6: Broad News Diversity Filter for General Queries
+            if q_type in ("general_news", "latest_news"):
+                retrieved_articles = apply_broad_news_diversity(retrieved_articles)
 
     if not retrieved_articles:
         logger.info(f"No relevant news context found for query: '{search_query}'.")

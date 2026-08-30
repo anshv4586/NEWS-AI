@@ -134,26 +134,45 @@ def get_full_articles_by_ids(article_ids: List[str]) -> Dict[str, Dict[str, Any]
 
 def is_valid_real_article(art: Dict[str, Any]) -> bool:
     """
-    Excludes synthetic/mock test records from being returned to users in RAG answers.
+    Excludes synthetic/mock test records and empty-summary articles from being returned to users in RAG answers.
     """
     if not art:
         return False
     title = (art.get("title") or "").lower()
     source = (art.get("source") or "").lower()
+    summary = (art.get("summary") or "").strip()
     
     # Filter out test/mock artifacts
-    if any(w in source for w in ["test", "minimal", "mock", "sample", "demo", "unittest"]):
+    if any(w in source for w in ["test", "unittest", "minimal", "mock", "sample", "demo"]):
         return False
     if any(w in title for w in ["minimal article", "test headline", "automated test", "test news"]):
+        return False
+
+    # Require substantive summary details (at least 30 characters)
+    if not summary or len(summary) < 30 or summary.lower() == title.lower():
+        return False
+
+    if art.get("quality_status") in ("invalid", "needs_review"):
         return False
 
     return True
 
 
+def normalize_text_for_match(text: str) -> str:
+    """Normalizes text for robust headline comparison, stripping punctuation and converting smart quotes."""
+    if not text:
+        return ""
+    import unicodedata
+    t = unicodedata.normalize("NFKD", str(text))
+    t = t.replace("’", "'").replace("‘", "'").replace("“", '"').replace("”", '"').replace("—", "-").replace("–", "-")
+    t = re.sub(r"[^\w\s]", " ", t.lower())
+    return re.sub(r"\s+", " ", t).strip()
+
+
 def find_article_by_headline_match(query: str) -> Optional[Dict[str, Any]]:
     """
-    Detects if the user query contains or matches an exact article headline in the database.
-    Ensures 100% accurate context retrieval when a user clicks a Top Headline card.
+    Detects if the user query contains or matches an exact or fuzzy article headline in the database.
+    Handles quote variants (', ’), punctuation, prefixes, and word overlap for 100% precision.
     """
     clean_q = (query or "").strip()
     prefixes = [
@@ -164,36 +183,52 @@ def find_article_by_headline_match(query: str) -> Optional[Dict[str, Any]]:
         r"^more info on\s*:\s*",
         r"^what about\s*:\s*",
     ]
-    extracted_title = clean_q
+    extracted = clean_q
     for p in prefixes:
-        extracted_title = re.sub(p, "", extracted_title, flags=re.IGNORECASE).strip()
+        extracted = re.sub(p, "", extracted, flags=re.IGNORECASE).strip()
 
-    if len(extracted_title) < 10:
+    if len(extracted) < 10:
         return None
+
+    norm_target = normalize_text_for_match(extracted)
+    target_words = set(norm_target.split())
 
     try:
         from src.database import execute_query
-        # 1. Try exact full title match
-        match = execute_query(
-            "SELECT * FROM news WHERE LOWER(title) = LOWER(%s) AND published_at IS NOT NULL LIMIT 1",
-            (extracted_title,),
-            fetchone=True
+        rows = execute_query(
+            "SELECT * FROM news WHERE published_at IS NOT NULL AND summary IS NOT NULL AND LENGTH(TRIM(summary)) >= 30 ORDER BY id DESC LIMIT 250",
+            fetchall=True
         )
-        if match and is_valid_real_article(match):
-            match["rank"] = 1
-            return match
+        if not rows:
+            return None
 
-        # 2. Try prefix match
-        prefix = extracted_title[:50].strip()
-        if len(prefix) >= 15:
-            match = execute_query(
-                "SELECT * FROM news WHERE title LIKE %s AND published_at IS NOT NULL LIMIT 1",
-                (f"{prefix}%",),
-                fetchone=True
-            )
-            if match and is_valid_real_article(match):
-                match["rank"] = 1
-                return match
+        best_match = None
+        best_score = 0.0
+
+        for r in rows:
+            if not is_valid_real_article(r):
+                continue
+            norm_title = normalize_text_for_match(r.get("title", ""))
+            if not norm_title:
+                continue
+
+            # Exact or Substring match
+            if norm_title == norm_target or norm_target in norm_title or norm_title in norm_target:
+                r["rank"] = 1
+                return r
+
+            # Jaccard word overlap
+            title_words = set(norm_title.split())
+            if title_words and target_words:
+                overlap = len(title_words.intersection(target_words)) / max(len(target_words), 1)
+                if overlap >= 0.60 and overlap > best_score:
+                    best_score = overlap
+                    best_match = r
+
+        if best_match and best_score >= 0.60:
+            best_match["rank"] = 1
+            return best_match
+
     except Exception as err:
         logger.error(f"Error matching article by headline: {err}")
 

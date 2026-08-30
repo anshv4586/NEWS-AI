@@ -26,7 +26,7 @@ def get_llm_config():
     provider = os.getenv("LLM_PROVIDER", "gemini").lower().strip()
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
-    model_name = os.getenv("LLM_MODEL", "gemini-2.5-flash").strip()
+    model_name = os.getenv("LLM_MODEL", "gemini-3.5-flash-lite").strip()
 
     return {
         "provider": provider,
@@ -40,7 +40,7 @@ def generate_answer_with_gemini(
     prompt: str,
     system_instruction: str,
     api_key: str,
-    model_name: str = "gemini-2.5-flash",
+    model_name: str = "gemini-3.5-flash-lite",
     temperature: float = 0.2,
 ) -> str:
     """
@@ -49,8 +49,8 @@ def generate_answer_with_gemini(
     if not api_key or api_key == "your_gemini_api_key_here":
         raise ValueError("Gemini API key is not configured in environment variables.")
 
-    # Prioritize active standard Gemini models
-    candidate_models = [model_name, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    # Prioritize active, high-availability standard Gemini models
+    candidate_models = [model_name, "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.6-flash"]
     seen = set()
     models_to_try = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
 
