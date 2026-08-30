@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Send, Mic, Paperclip, Sparkles, Volume2, Bookmark, Check, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { Send, Sparkles, Volume2, Bookmark, Check, ExternalLink } from 'lucide-react';
 
 export default function ChatSection({
   messages,
@@ -12,9 +12,6 @@ export default function ChatSection({
   savedUrls = [],
 }) {
   const [inputText, setInputText] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
 
   const handleSend = () => {
     if (!inputText.trim() || isLoading) return;
@@ -32,37 +29,6 @@ export default function ChatSection({
   // Quick prompt chip click
   const handleChipClick = (promptText) => {
     onSendMessage(promptText);
-  };
-
-  // Browser Speech Recording for Voice Input
-  const handleMicClick = async () => {
-    if (isRecording) {
-      if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop();
-      }
-      setIsRecording(false);
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorderRef.current = new MediaRecorder(stream);
-        audioChunksRef.current = [];
-
-        mediaRecorderRef.current.ondataavailable = (event) => {
-          if (event.data.size > 0) audioChunksRef.current.push(event.data);
-        };
-
-        mediaRecorderRef.current.onstop = () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-          onVoiceInput(audioBlob);
-          stream.getTracks().forEach((track) => track.stop());
-        };
-
-        mediaRecorderRef.current.start();
-        setIsRecording(true);
-      } catch (err) {
-        alert('Microphone access unavailable or denied.');
-      }
-    }
   };
 
   return (
@@ -146,26 +112,11 @@ export default function ChatSection({
         />
 
         <div className="input-bottom-actions-row">
-          <div className="input-left-buttons">
-            <button className="input-action-btn" title="Attach file">
-              <Paperclip size={14} />
-              <span>Attach</span>
-            </button>
-
-            <button
-              className={`input-action-btn ${isRecording ? 'recording' : ''}`}
-              onClick={handleMicClick}
-              title="Voice Input"
-            >
-              <Mic size={14} />
-              <span>{isRecording ? 'Listening...' : 'Voice'}</span>
-            </button>
-          </div>
-
           <button
             className={`btn-send-circle-indigo ${inputText.trim() ? 'active' : ''}`}
             onClick={handleSend}
             disabled={!inputText.trim() || isLoading}
+            title="Send Message"
           >
             <Send size={16} />
           </button>

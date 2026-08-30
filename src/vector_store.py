@@ -9,15 +9,6 @@ Cosine Similarity search, and metadata filtering.
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 import logging
-try:
-    import chromadb
-    from chromadb.config import Settings
-    HAS_CHROMADB = True
-except Exception:
-    chromadb = None
-    Settings = None
-    HAS_CHROMADB = False
-
 from src.embeddings import (
     create_embedding,
     create_embeddings_batch,
@@ -34,21 +25,37 @@ COLLECTION_NAME = "news_vectors"
 # Cached ChromaDB client & collection instances
 _CLIENT_INSTANCE: Optional[Any] = None
 _COLLECTION_INSTANCE: Optional[Any] = None
+_CHECKED_CHROMADB: bool = False
+_HAS_CHROMADB: bool = False
 
 
 def get_vector_client() -> Any:
     """
     Initializes and returns a persistent ChromaDB client instance stored in vector_db/.
+    Loads ChromaDB lazily on demand.
     """
-    global _CLIENT_INSTANCE
-    if not HAS_CHROMADB or chromadb is None:
-        logger.warning("ChromaDB library not installed. Vector store disabled.")
+    global _CLIENT_INSTANCE, _CHECKED_CHROMADB, _HAS_CHROMADB
+    if not _CHECKED_CHROMADB:
+        try:
+            import chromadb
+            _HAS_CHROMADB = True
+        except Exception:
+            _HAS_CHROMADB = False
+        _CHECKED_CHROMADB = True
+
+    if not _HAS_CHROMADB:
+        logger.debug("ChromaDB library not installed. Vector store disabled.")
         return None
 
     if _CLIENT_INSTANCE is None:
-        VECTOR_DB_DIR.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Initializing ChromaDB PersistentClient at '{VECTOR_DB_DIR}'...")
-        _CLIENT_INSTANCE = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
+        try:
+            import chromadb
+            VECTOR_DB_DIR.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Initializing ChromaDB PersistentClient at '{VECTOR_DB_DIR}'...")
+            _CLIENT_INSTANCE = chromadb.PersistentClient(path=str(VECTOR_DB_DIR))
+        except Exception as err:
+            logger.warning(f"Could not initialize ChromaDB client: {err}")
+            _CLIENT_INSTANCE = None
     return _CLIENT_INSTANCE
 
 
@@ -57,13 +64,11 @@ def get_vector_collection() -> Any:
     Retrieves or creates the 'news_vectors' ChromaDB collection using Cosine Similarity.
     """
     global _COLLECTION_INSTANCE
-    if not HAS_CHROMADB or chromadb is None:
+    client = get_vector_client()
+    if not client:
         return None
 
     if _COLLECTION_INSTANCE is None:
-        client = get_vector_client()
-        if not client:
-            return None
         logger.info(f"Getting or creating ChromaDB collection '{COLLECTION_NAME}' (Cosine Metric)...")
         _COLLECTION_INSTANCE = client.get_or_create_collection(
             name=COLLECTION_NAME,

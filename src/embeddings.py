@@ -9,13 +9,6 @@ preparation, and single/batch vector embedding generation.
 from typing import Any, Dict, List, Optional
 import json
 import logging
-try:
-    from sentence_transformers import SentenceTransformer
-    HAS_SENTENCE_TRANSFORMERS = True
-except Exception:
-    SentenceTransformer = None
-    HAS_SENTENCE_TRANSFORMERS = False
-
 logger = logging.getLogger(__name__)
 
 # Model configuration constants
@@ -24,22 +17,42 @@ EMBEDDING_DIMENSION = 384
 
 # Module-level cached model instance (Singleton pattern)
 _MODEL_INSTANCE: Optional[Any] = None
+_CHECKED_TRANSFORMERS: bool = False
+_HAS_SENTENCE_TRANSFORMERS: bool = False
 
 
 def get_embedding_model(model_name: str = DEFAULT_MODEL_NAME) -> Any:
     """
-    Loads and caches the SentenceTransformer model instance.
-    Reuses the existing model in memory to avoid reloading overhead.
+    Loads and caches the SentenceTransformer model instance lazily on first use.
+    Avoids heavy PyTorch import overhead on serverless startup.
     """
-    global _MODEL_INSTANCE
-    if not HAS_SENTENCE_TRANSFORMERS or SentenceTransformer is None:
-        logger.warning("SentenceTransformers library not installed. Vector embeddings disabled.")
+    global _MODEL_INSTANCE, _CHECKED_TRANSFORMERS, _HAS_SENTENCE_TRANSFORMERS
+    import os
+    if os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+        # In serverless environments, avoid downloading 500MB weights on cold start
+        return None
+
+    if not _CHECKED_TRANSFORMERS:
+        try:
+            from sentence_transformers import SentenceTransformer
+            _HAS_SENTENCE_TRANSFORMERS = True
+        except Exception:
+            _HAS_SENTENCE_TRANSFORMERS = False
+        _CHECKED_TRANSFORMERS = True
+
+    if not _HAS_SENTENCE_TRANSFORMERS:
+        logger.debug("SentenceTransformers library not installed. Vector embeddings disabled.")
         return None
 
     if _MODEL_INSTANCE is None:
-        logger.info(f"Loading SentenceTransformer embedding model: '{model_name}'...")
-        _MODEL_INSTANCE = SentenceTransformer(model_name)
-        logger.info(f"Embedding model loaded successfully (Dimension: {EMBEDDING_DIMENSION}).")
+        try:
+            from sentence_transformers import SentenceTransformer
+            logger.info(f"Loading SentenceTransformer embedding model: '{model_name}'...")
+            _MODEL_INSTANCE = SentenceTransformer(model_name)
+            logger.info(f"Embedding model loaded successfully (Dimension: {EMBEDDING_DIMENSION}).")
+        except Exception as err:
+            logger.warning(f"Could not load SentenceTransformer model: {err}")
+            _MODEL_INSTANCE = None
     return _MODEL_INSTANCE
 
 

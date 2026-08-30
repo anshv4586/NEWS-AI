@@ -1,377 +1,244 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Mail, Phone, Lock, ArrowLeft, ShieldCheck, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
-import { sendOtp, verifyOtp } from '../services/api';
+import React, { useState } from 'react';
+import { X, Lock, Mail, User, Globe, ArrowRight, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { registerUser, loginUser } from '../services/api';
 
-const COUNTRY_CODES = [
-  { code: '+91', country: 'India 🇮🇳' },
-  { code: '+1', country: 'USA / Canada 🇺🇸 🇨🇦' },
-  { code: '+44', country: 'United Kingdom 🇬🇧' },
-  { code: '+971', country: 'UAE 🇦🇪' },
-  { code: '+61', country: 'Australia 🇦🇺' },
-  { code: '+65', country: 'Singapore 🇸🇬' },
-  { code: '+49', country: 'Germany 🇩🇪' },
-  { code: '+33', country: 'France 🇫🇷' },
-  { code: '+81', country: 'Japan 🇯🇵' },
-];
-
-export default function AuthModal({ isOpen, onClose, onAuthSuccess, promptMessage }) {
-  const [authType, setAuthType] = useState('email'); // 'email' | 'phone'
-  const [emailInput, setEmailInput] = useState('');
-  const [phoneInput, setPhoneInput] = useState('');
-  const [countryCode, setCountryCode] = useState('+91');
-
-  // Step state: 'input' | 'otp'
-  const [step, setStep] = useState('input');
-
-  // OTP Digits state array
-  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-  const digitRefs = useRef([]);
-
-  // Timer & Loading states
-  const [countdown, setCountdown] = useState(0);
+export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [country, setCountry] = useState('India');
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-
-  // Reset state when modal opens/closes
-  useEffect(() => {
-    if (!isOpen) {
-      setStep('input');
-      setOtpDigits(['', '', '', '', '', '']);
-      setErrorMsg('');
-      setSuccessMsg('');
-      setIsLoading(false);
-      setCountdown(0);
-    }
-  }, [isOpen]);
-
-  // Countdown Timer
-  useEffect(() => {
-    let timer;
-    if (countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [countdown]);
+  const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
 
   if (!isOpen) return null;
 
-  const currentIdentifier = authType === 'email' ? emailInput.trim() : phoneInput.trim();
-
-  // Validate Input
-  const isValidInput = () => {
-    if (authType === 'email') {
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim());
-    } else {
-      const cleanDigits = phoneInput.replace(/[^\d]/g, '');
-      return cleanDigits.length >= 8 && cleanDigits.length <= 15;
-    }
+  const resetForm = () => {
+    setError(null);
+    setSuccessMsg(null);
   };
 
-  // Step 1: Send OTP
-  const handleSendOtp = async (e) => {
-    if (e) e.preventDefault();
-    if (!isValidInput() || isLoading) return;
+  const handleModeSwitch = (newMode) => {
+    setMode(newMode);
+    resetForm();
+  };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
     setIsLoading(true);
-    setErrorMsg('');
-    setSuccessMsg('');
 
     try {
-      const res = await sendOtp(currentIdentifier, authType, countryCode);
-      setStep('otp');
-      setCountdown(60);
-      setSuccessMsg(res.message || `Verification code sent to ${currentIdentifier}`);
-      // Auto-focus first OTP digit input box after step transition
-      setTimeout(() => {
-        if (digitRefs.current[0]) digitRefs.current[0].focus();
-      }, 100);
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to send OTP verification code.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle 6-Digit OTP Box Entry
-  const handleDigitChange = (index, value) => {
-    if (!/^\d*$/.test(value)) return;
-
-    const newDigits = [...otpDigits];
-    // Take last entered character if multiple typed
-    newDigits[index] = value.slice(-1);
-    setOtpDigits(newDigits);
-    setErrorMsg('');
-
-    // Auto-advance focus to next digit box
-    if (value && index < 5) {
-      if (digitRefs.current[index + 1]) {
-        digitRefs.current[index + 1].focus();
-      }
-    }
-
-    // Auto-trigger verification if all 6 digits completed
-    const fullOtp = newDigits.join('');
-    if (fullOtp.length === 6 && !newDigits.includes('')) {
-      handleVerifyOtp(fullOtp);
-    }
-  };
-
-  // Handle Backspace Navigation in OTP Boxes
-  const handleDigitKeyDown = (index, e) => {
-    if (e.key === 'Backspace') {
-      if (!otpDigits[index] && index > 0) {
-        if (digitRefs.current[index - 1]) {
-          digitRefs.current[index - 1].focus();
+      if (mode === 'register') {
+        const res = await registerUser({
+          name,
+          email,
+          password,
+          country,
+        });
+        setSuccessMsg('Account registered in client_db successfully!');
+        if (res.client) {
+          localStorage.setItem('news_ai_user', JSON.stringify(res.client));
+          if (res.token) localStorage.setItem('news_ai_token', res.token);
+          setTimeout(() => {
+            onAuthSuccess && onAuthSuccess(res.client);
+            onClose();
+          }, 800);
+        }
+      } else {
+        const res = await loginUser({
+          email,
+          password,
+        });
+        setSuccessMsg('Welcome back!');
+        if (res.client) {
+          localStorage.setItem('news_ai_user', JSON.stringify(res.client));
+          if (res.token) localStorage.setItem('news_ai_token', res.token);
+          setTimeout(() => {
+            onAuthSuccess && onAuthSuccess(res.client);
+            onClose();
+          }, 600);
         }
       }
-    }
-  };
-
-  // Handle Paste Event in OTP Boxes
-  const handleOtpPaste = (e) => {
-    e.preventDefault();
-    const pastedData = e.clipboardData.getData('text').replace(/[^\d]/g, '').slice(0, 6);
-    if (pastedData) {
-      const digitsArr = pastedData.split('');
-      const newDigits = ['', '', '', '', '', ''];
-      digitsArr.forEach((d, i) => {
-        if (i < 6) newDigits[i] = d;
-      });
-      setOtpDigits(newDigits);
-      setErrorMsg('');
-
-      // Focus last filled box
-      const lastIndex = Math.min(digitsArr.length - 1, 5);
-      if (digitRefs.current[lastIndex]) {
-        digitRefs.current[lastIndex].focus();
-      }
-
-      if (pastedData.length === 6) {
-        handleVerifyOtp(pastedData);
-      }
-    }
-  };
-
-  // Step 2: Verify OTP
-  const handleVerifyOtp = async (codeToVerify) => {
-    const finalCode = codeToVerify || otpDigits.join('');
-    if (finalCode.length !== 6 || isLoading) return;
-
-    setIsLoading(true);
-    setErrorMsg('');
-
-    try {
-      const res = await verifyOtp(currentIdentifier, authType, finalCode, countryCode);
-      setSuccessMsg('Account verified successfully!');
-      setTimeout(() => {
-        onAuthSuccess && onAuthSuccess(res.user);
-        onClose();
-      }, 500);
     } catch (err) {
-      setErrorMsg(err.message || 'Invalid or expired verification code.');
+      setError(err.message || 'Authentication error. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content glass-card auth-modal-content" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="modal-header">
-          <div className="modal-title">
-            <Lock size={18} className="gold-text" />
-            <span>{step === 'input' ? 'Account Authentication' : 'Verify OTP Code'}</span>
+    <div className="auth-modal-overlay" onClick={onClose}>
+      <div className="auth-modal-card glass-card" onClick={(e) => e.stopPropagation()}>
+        {/* Close Button */}
+        <button className="auth-modal-close-btn" onClick={onClose} aria-label="Close modal">
+          <X size={20} />
+        </button>
+
+        {/* Modal Header */}
+        <div className="auth-modal-header">
+          <div className="auth-modal-icon-badge">
+            <Lock size={22} className="auth-icon-glow" />
           </div>
-          <button className="close-btn" onClick={onClose}><X size={18} /></button>
+          <h2 className="auth-modal-title">
+            {mode === 'login' ? 'Sign In to News AI' : 'Create Client Account'}
+          </h2>
+          <p className="auth-modal-subtitle">
+            {mode === 'login'
+              ? 'Access real-time breaking news tailored to your preferences.'
+              : 'Join as a registered client and sync your saved news and search history.'}
+          </p>
         </div>
 
-        {/* Modal Body */}
-        <div className="modal-body auth-modal-body">
-          {/* Prompt banner if user accessed protected feature */}
-          {promptMessage && step === 'input' && (
-            <div className="auth-prompt-banner">
-              <ShieldCheck size={16} />
-              <span>{promptMessage}</span>
+        {/* Mode Switch Tabs */}
+        <div className="auth-tab-group">
+          <button
+            type="button"
+            className={`auth-tab-btn ${mode === 'login' ? 'active' : ''}`}
+            onClick={() => handleModeSwitch('login')}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            className={`auth-tab-btn ${mode === 'register' ? 'active' : ''}`}
+            onClick={() => handleModeSwitch('register')}
+          >
+            Sign Up
+          </button>
+        </div>
+
+        {/* Error / Success Notifications */}
+        {error && (
+          <div className="auth-alert error">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="auth-alert success">
+            <CheckCircle size={16} />
+            <span>{successMsg}</span>
+          </div>
+        )}
+
+        {/* Auth Form */}
+        <form className="auth-form" onSubmit={handleSubmit}>
+          {mode === 'register' && (
+            <div className="auth-input-group">
+              <label className="auth-label">Full Name</label>
+              <div className="auth-input-wrapper">
+                <User size={18} className="auth-field-icon" />
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rahul Sharma"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="auth-input"
+                />
+              </div>
             </div>
           )}
 
-          {/* Feedback Banners */}
-          {errorMsg && (
-            <div className="auth-status-banner error">
-              <AlertCircle size={16} />
-              <span>{errorMsg}</span>
+          <div className="auth-input-group">
+            <label className="auth-label">Email Address</label>
+            <div className="auth-input-wrapper">
+              <Mail size={18} className="auth-field-icon" />
+              <input
+                type="email"
+                required
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="auth-input"
+              />
+            </div>
+          </div>
+
+          <div className="auth-input-group">
+            <label className="auth-label">Password</label>
+            <div className="auth-input-wrapper">
+              <Lock size={18} className="auth-field-icon" />
+              <input
+                type="password"
+                required
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="auth-input"
+              />
+            </div>
+          </div>
+
+          {mode === 'register' && (
+            <div className="auth-input-group">
+              <label className="auth-label">Preferred Region / Country</label>
+              <div className="auth-input-wrapper">
+                <Globe size={18} className="auth-field-icon" />
+                <select
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="auth-input auth-select"
+                >
+                  <option value="India">India</option>
+                  <option value="USA">United States</option>
+                  <option value="UK">United Kingdom</option>
+                  <option value="Global">Global / International</option>
+                  <option value="Europe">Europe</option>
+                  <option value="Canada">Canada</option>
+                  <option value="Australia">Australia</option>
+                </select>
+              </div>
             </div>
           )}
 
-          {successMsg && (
-            <div className="auth-status-banner success">
-              <CheckCircle2 size={16} />
-              <span>{successMsg}</span>
-            </div>
-          )}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="auth-submit-btn"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 size={18} className="spin-animation" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <>
+                <span>{mode === 'login' ? 'Sign In' : 'Register Account'}</span>
+                <ArrowRight size={18} />
+              </>
+            )}
+          </button>
+        </form>
 
-          {step === 'input' ? (
-            /* STEP 1: Choose Email or Phone */
-            <form onSubmit={handleSendOtp} className="auth-form">
-              {/* Authentication Mode Toggle Tabs */}
-              <div className="auth-type-tabs">
-                <button
-                  type="button"
-                  className={`auth-tab-btn ${authType === 'email' ? 'active' : ''}`}
-                  onClick={() => { setAuthType('email'); setErrorMsg(''); }}
-                >
-                  <Mail size={15} />
-                  <span>Email</span>
-                </button>
-
-                <button
-                  type="button"
-                  className={`auth-tab-btn ${authType === 'phone' ? 'active' : ''}`}
-                  onClick={() => { setAuthType('phone'); setErrorMsg(''); }}
-                >
-                  <Phone size={15} />
-                  <span>Phone Number</span>
-                </button>
-              </div>
-
-              {/* Input Fields */}
-              {authType === 'email' ? (
-                <div className="input-group">
-                  <label className="input-label">Email Address</label>
-                  <div className="input-wrapper">
-                    <Mail size={16} className="input-icon" />
-                    <input
-                      type="email"
-                      className="auth-input"
-                      placeholder="name@example.com"
-                      value={emailInput}
-                      onChange={(e) => { setEmailInput(e.target.value); setErrorMsg(''); }}
-                      autoFocus
-                      required
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="input-group">
-                  <label className="input-label">Phone Number</label>
-                  <div className="phone-input-row">
-                    <select
-                      className="country-select"
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                    >
-                      {COUNTRY_CODES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.code} ({c.country})
-                        </option>
-                      ))}
-                    </select>
-
-                    <div className="input-wrapper flex-1">
-                      <Phone size={16} className="input-icon" />
-                      <input
-                        type="tel"
-                        className="auth-input"
-                        placeholder="98765 43210"
-                        value={phoneInput}
-                        onChange={(e) => { setPhoneInput(e.target.value); setErrorMsg(''); }}
-                        autoFocus
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="btn-gold-pill auth-submit-btn"
-                disabled={!isValidInput() || isLoading}
-              >
-                {isLoading ? (
-                  <span className="btn-loading-row">
-                    <RefreshCw size={16} className="spinning" /> Sending Code...
-                  </span>
-                ) : (
-                  <span>Send Verification Code</span>
-                )}
-              </button>
-            </form>
-          ) : (
-            /* STEP 2: 6-Digit OTP Verification Screen */
-            <div className="otp-verification-wrapper">
-              <div className="otp-target-info">
-                <p className="otp-sent-text">
-                  Enter 6-digit code sent to{' '}
-                  <strong>
-                    {authType === 'phone' ? `${countryCode} ${phoneInput}` : emailInput}
-                  </strong>
-                </p>
-
-                <button
-                  type="button"
-                  className="edit-identifier-btn"
-                  onClick={() => { setStep('input'); setOtpDigits(['','','','','','']); setErrorMsg(''); }}
-                >
-                  <ArrowLeft size={13} /> Edit {authType}
-                </button>
-              </div>
-
-              {/* 6 Digit Input Boxes */}
-              <div className="otp-boxes-row" onPaste={handleOtpPaste}>
-                {otpDigits.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => (digitRefs.current[idx] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    className={`otp-digit-box ${digit ? 'filled' : ''}`}
-                    value={digit}
-                    onChange={(e) => handleDigitChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleDigitKeyDown(idx, e)}
-                    disabled={isLoading}
-                  />
-                ))}
-              </div>
-
-              {/* Countdown & Resend Option */}
-              <div className="otp-actions-row">
-                {countdown > 0 ? (
-                  <span className="timer-text">Resend code in {countdown}s</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="resend-otp-btn"
-                    onClick={handleSendOtp}
-                    disabled={isLoading}
-                  >
-                    Resend OTP Code
-                  </button>
-                )}
-              </div>
-
-              {/* Manual Verify Button */}
+        {/* Footer switch prompt */}
+        <div className="auth-footer-prompt">
+          {mode === 'login' ? (
+            <p>
+              Don't have an account?{' '}
               <button
                 type="button"
-                className="btn-gold-pill auth-submit-btn"
-                onClick={() => handleVerifyOtp()}
-                disabled={otpDigits.join('').length !== 6 || isLoading}
+                className="auth-link-inline"
+                onClick={() => handleModeSwitch('register')}
               >
-                {isLoading ? (
-                  <span className="btn-loading-row">
-                    <RefreshCw size={16} className="spinning" /> Verifying...
-                  </span>
-                ) : (
-                  <span>Verify & Login</span>
-                )}
+                Create one now
               </button>
-            </div>
+            </p>
+          ) : (
+            <p>
+              Already registered?{' '}
+              <button
+                type="button"
+                className="auth-link-inline"
+                onClick={() => handleModeSwitch('login')}
+              >
+                Sign in here
+              </button>
+            </p>
           )}
         </div>
       </div>

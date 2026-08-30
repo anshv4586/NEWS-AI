@@ -155,15 +155,20 @@ def check_is_follow_up(query: str) -> bool:
     """
     q = query.lower().strip()
 
+    # Explicit headline card queries (e.g. "Tell me more details about: Headline...") are standalone
+    if ":" in q or any(q.startswith(p) for p in ["tell me more details about", "tell me more about", "tell me about", "details on"]):
+        if len(q.split()) >= 4:
+            return False
+
     # Explicit language switching requests are treated as follow-up turns
     if check_explicit_language_override(query):
         return True
 
     # Common follow-up patterns in English, Hindi, and Hinglish
     follow_up_triggers = [
-        "what about", "how about", "what else", "tell me more",
+        "what about", "how about", "what else",
         "and china", "and india", "what of", "give me the latest",
-        "latest developments", "any updates", "more info", "what happened today",
+        "latest developments", "any updates", "more info",
         "kya chal raha", "aur batao", "phir kya hua", "india mein", "china mein",
         "aur china", "aur india", "aur us", "phir", "aur",
         "story 1", "story 2", "article 1", "article 2", "first article", "second article", "third article"

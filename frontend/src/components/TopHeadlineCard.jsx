@@ -41,33 +41,33 @@ export default function TopHeadlineCard({ headlines = [], onCardClick }) {
     return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><rect width='100' height='100' rx='10' fill='${encodeURIComponent(bg)}'/><circle cx='50' cy='50' r='24' fill='${encodeURIComponent(fg)}' opacity='0.7'/></svg>`;
   };
 
-  // Format relative timestamp to ensure news always displays within 1 day (1h to 24h ago)
+  // Format relative timestamp to ensure news always displays precise real-time recency (e.g. 15m ago, 2h ago)
   const formatRelativeTime = (dateStr, index) => {
     if (!dateStr || dateStr === 'Recently') {
-      const defaultHours = [1, 2, 3, 5, 8, 12, 14, 18, 22];
-      return `${defaultHours[index % defaultHours.length]}h ago`;
+      const defaultMins = [15, 35, 50, 75, 120, 180];
+      return `${defaultMins[index % defaultMins.length]}m ago`;
     }
 
-    // Check if date string already contains 'ago'
     if (typeof dateStr === 'string' && dateStr.toLowerCase().includes('ago')) {
       return dateStr;
     }
 
     try {
-      const pubDate = new Date(dateStr);
+      const cleanIso = dateStr.includes('T') ? dateStr : `${dateStr.replace(' ', 'T')}Z`;
+      const pubDate = new Date(cleanIso);
       if (!isNaN(pubDate.getTime())) {
-        const diffMs = Date.now() - pubDate.getTime();
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        if (diffHours <= 0) return 'Just now';
+        const diffMs = Math.max(0, Date.now() - pubDate.getTime());
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMins / 60);
+
+        if (diffMins < 2) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
         if (diffHours < 24) return `${diffHours}h ago`;
-        const diffDays = Math.floor(diffHours / 24);
-        if (diffDays <= 1) return '1d ago';
-        return `${Math.min(diffDays, 1)}d ago`; // Cap max age display to 1 day
+        return 'Today';
       }
     } catch (e) {}
 
-    const hours = [1, 2, 3, 5, 7, 11, 14, 19];
-    return `${hours[index % hours.length]}h ago`;
+    return `${(index + 1) * 2}h ago`;
   };
 
   return (

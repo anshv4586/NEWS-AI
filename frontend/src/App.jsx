@@ -59,15 +59,18 @@ export default function App() {
   // Check user session & load initial data on mount
   useEffect(() => {
     async function loadInitialData() {
-      // 1. Check user session
-      const authRes = await fetchCurrentUser();
-      if (authRes.authenticated && authRes.user) {
-        setCurrentUser(authRes.user);
-        const userSaved = await fetchUserSavedArticles();
-        if (userSaved && userSaved.length > 0) {
-          setSavedArticles(userSaved);
+      // 1. Check local storage user session
+      try {
+        const storedUser = localStorage.getItem('news_ai_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          setCurrentUser(parsed);
+          const userSaved = await fetchUserSavedArticles();
+          if (userSaved && userSaved.length > 0) {
+            setSavedArticles(userSaved);
+          }
         }
-      }
+      } catch (e) {}
 
       // 2. Fetch top headlines
       const articles = await fetchLatestNews(10);
@@ -253,6 +256,9 @@ export default function App() {
         theme={theme}
         onThemeToggle={handleThemeToggle}
         onOpenMobileDrawer={() => setIsMobileDrawerOpen(true)}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
       />
 
       {/* Main Responsive Grid Layout */}

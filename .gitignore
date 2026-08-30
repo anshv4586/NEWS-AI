@@ -13,9 +13,10 @@ env/
 # Vector Database storage
 vector_db/
 
-# Data output files (optional to ignore or keep)
-
-# data/
+# Data output files
+data/*.db
+data/*.sqlite3
+*.db
 
 # IDE / Editor settings
 .vscode/

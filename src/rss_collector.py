@@ -1,14 +1,20 @@
 """
 RSS Collector Module for Global News AI
 
-Fetches and extracts structured article dictionaries from RSS feed URLs with error handling and logging.
+Fetches and extracts structured article dictionaries from RSS feed URLs with
+multi-threaded parallel collection, strict socket timeouts, and error handling.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+import socket
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import feedparser
 
 logger = logging.getLogger(__name__)
+
+# Enforce strict 3.5-second default socket timeout so hung URLs fail fast
+socket.setdefaulttimeout(3.5)
 
 
 def extract_article_fields(
@@ -46,7 +52,10 @@ def fetch_feed_articles(
 
     try:
         # feedparser handles connection timeouts and HTTP status internally
-        parsed_feed = feedparser.parse(url)
+        parsed_feed = feedparser.parse(
+            url,
+            request_headers={"User-Agent": "GlobalNewsAI/1.0 (News Aggregator)"}
+        )
 
         # Check for HTTP status errors (e.g. 404, 500)
         status = getattr(parsed_feed, "status", None)
@@ -57,7 +66,7 @@ def fetch_feed_articles(
         # Check for XML bozo parsing exceptions
         if getattr(parsed_feed, "bozo", 0) == 1:
             bozo_exc = getattr(parsed_feed, "bozo_exception", "Unknown Parsing Error")
-            logger.warning(f"Malformed feed notice at {url}: {bozo_exc}")
+            logger.debug(f"Malformed feed notice at {url}: {bozo_exc}")
 
         entries = getattr(parsed_feed, "entries", [])
         for entry in entries:
@@ -78,23 +87,49 @@ def fetch_feed_articles(
 
 
 def collect_all_feeds(
-    feeds_config: Dict[str, List[Dict[str, str]]]
+    feeds_config: Dict[str, List[Dict[str, str]]],
+    max_workers: int = 8,
+    timeout_seconds: float = 4.0,
 ) -> List[Dict[str, Any]]:
     """
-    Iterates over all configured feeds, safely collecting articles even if individual feeds fail.
+    Parallel multi-threaded collector:
+    Spawns worker threads to fetch all feeds simultaneously within timeout_seconds,
+    preventing slow feeds from delaying the response.
     """
     all_articles = []
+    tasks = []
 
+    # Flatten feeds into a list of tuples: (url, source, category)
+    feed_items = []
     for category, feeds in feeds_config.items():
         for feed_info in feeds:
             source = feed_info.get("source", "Unknown Source")
             url = feed_info.get("url", "")
+            if url:
+                feed_items.append((url, source, category))
 
-            if not url:
-                logger.warning(f"Skipping invalid feed configuration with missing URL in category '{category}'")
-                continue
+    if not feed_items:
+        return []
 
-            articles = fetch_feed_articles(url, source, category)
-            all_articles.extend(articles)
+    workers = min(max_workers, len(feed_items))
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            future_to_feed = {
+                executor.submit(fetch_feed_articles, url, src, cat): (src, url)
+                for url, src, cat in feed_items
+            }
+
+            for future in as_completed(future_to_feed, timeout=timeout_seconds):
+                try:
+                    feed_articles = future.result()
+                    if feed_articles:
+                        all_articles.extend(feed_articles)
+                except Exception as exc:
+                    src_name, feed_url = future_to_feed[future]
+                    logger.warning(f"Feed {src_name} ({feed_url}) generated an exception: {exc}")
+    except TimeoutError:
+        logger.warning(f"Parallel feed collection reached {timeout_seconds}s deadline. Returning gathered articles ({len(all_articles)} items).")
+    except Exception as general_err:
+        logger.error(f"Error during parallel feed collection: {general_err}")
 
     return all_articles

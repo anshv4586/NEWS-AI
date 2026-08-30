@@ -12,6 +12,8 @@ import json
 import logging
 import re
 import unicodedata
+from datetime import datetime, timezone
+import dateutil.parser
 from bs4 import BeautifulSoup
 
 try:
@@ -281,11 +283,45 @@ def calculate_quality(article: Dict[str, Any]) -> str:
     return "valid"
 
 
+def parse_published_date(raw_date: Any) -> str:
+    """
+    Normalizes any raw RSS/article date format (RFC 2822, ISO 8601, struct_time)
+    into standard ISO UTC datetime string 'YYYY-MM-DD HH:MM:SS'.
+    Guarantees that every article has a valid timestamp for precise recency sorting.
+    """
+    if not raw_date:
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    if isinstance(raw_date, datetime):
+        if raw_date.tzinfo is not None:
+            raw_date = raw_date.astimezone(timezone.utc).replace(tzinfo=None)
+        return raw_date.strftime("%Y-%m-%d %H:%M:%S")
+
+    if isinstance(raw_date, (list, tuple)) and len(raw_date) >= 6:
+        try:
+            dt = datetime(*raw_date[:6])
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
+
+    date_str = str(raw_date).strip()
+    if not date_str or date_str.lower() in ("recently", "none", "null"):
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    try:
+        dt = dateutil.parser.parse(date_str)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+
 def process_article(article: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], str]:
     """
     Master news processing function.
     Validates, cleans, normalizes, detects language/category/country,
-    extracts keywords, and assigns quality status.
+    extracts keywords, parses publication timestamps, and assigns quality status.
     
     Returns (processed_article_dict, status_message).
     """
@@ -315,7 +351,10 @@ def process_article(article: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], 
     # Step 5: Keyword Extraction
     keywords = extract_keywords(cleaned_title, cleaned_summary, top_n=5)
 
-    # Step 6: Quality Status Calculation
+    # Step 6: Publication Timestamp Normalization (YYYY-MM-DD HH:MM:SS)
+    published_iso = parse_published_date(article.get("published_at") or article.get("published"))
+
+    # Step 7: Quality Status Calculation
     quality = calculate_quality(article)
 
     processed = {
@@ -324,7 +363,7 @@ def process_article(article: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], 
         "summary": cleaned_summary,
         "url": url,
         "source": cleaned_source,
-        "published_at": article.get("published_at"),
+        "published_at": published_iso,
         "author": cleaned_author,
         "category": normalized_cat,
         "language": detected_lang,

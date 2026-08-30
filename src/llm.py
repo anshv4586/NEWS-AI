@@ -44,13 +44,15 @@ def generate_answer_with_gemini(
     temperature: float = 0.2,
 ) -> str:
     """
-    Generates a response using Google Gemini API with automatic retry on rate limits.
+    Generates a response using Google Gemini API with automatic retry on rate limits and model fallback.
     """
-    import time
     if not api_key or api_key == "your_gemini_api_key_here":
-        raise ValueError("Gemini API key is not configured in .env file.")
+        raise ValueError("Gemini API key is not configured in environment variables.")
 
-    models_to_try = [model_name]
+    # Prioritize active standard Gemini models
+    candidate_models = [model_name, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+    seen = set()
+    models_to_try = [m for m in candidate_models if m and not (m in seen or seen.add(m))]
 
     last_exception = None
 
@@ -76,8 +78,11 @@ def generate_answer_with_gemini(
                 if response and response.text:
                     return response.text.strip()
             except Exception as err:
-                logger.error(f"Gemini API model '{current_model}' generation error: {err}")
-                raise err
+                last_exception = err
+                logger.warning(f"Gemini model '{current_model}' attempt error: {err}. Trying fallback model...")
+
+        if last_exception:
+            raise last_exception
 
     except ImportError:
         # Fallback to google-generativeai legacy SDK
@@ -98,8 +103,11 @@ def generate_answer_with_gemini(
                     if response and response.text:
                         return response.text.strip()
                 except Exception as err:
-                    logger.error(f"Gemini legacy SDK model '{current_model}' error: {err}")
-                    raise err
+                    last_exception = err
+                    logger.warning(f"Gemini legacy SDK model '{current_model}' error: {err}")
+
+            if last_exception:
+                raise last_exception
         except Exception as err:
             logger.error(f"Gemini LLM Generation Error: {err}")
             raise
@@ -113,7 +121,7 @@ def generate_answer_with_openai(
     temperature: float = 0.2,
 ) -> str:
     """
-    Generates a response using OpenAI API.
+    Generates a response using OpenAI API with timeout protection.
     """
     if not api_key or api_key == "your_openai_api_key_here":
         raise ValueError("OpenAI API key is not configured in .env file.")
@@ -121,7 +129,7 @@ def generate_answer_with_openai(
     try:
         from openai import OpenAI
 
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=20.0)
         response = client.chat.completions.create(
             model=model_name,
             messages=[

@@ -21,3 +21,4 @@ openai>=1.0.0
 
 # Audio / Voice Output
 gTTS>=2.4.0
+requests>=2.31.0

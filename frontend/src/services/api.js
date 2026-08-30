@@ -2,33 +2,58 @@
  * API Service for connecting to FastAPI Backend with HTTP-only Session Cookie Support
  */
 
-const DIRECT_URL = 'http://127.0.0.1:8000';
+// Custom backend URL from environment (e.g., VITE_API_URL=https://api.myproject.com)
+const ENV_API_URL = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/$/, '') : '';
+
+// Helper to determine if we are running on a local development machine
+const isLocalhost = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname === '0.0.0.0'
+);
 
 /**
- * Smart fetch helper: calls FastAPI backend directly at http://127.0.0.1:8000 first,
- * automatically transmitting HTTP-only cookies with credentials: 'include'.
+ * Smart fetch helper:
+ * - Uses ENV_API_URL if explicitly configured.
+ * - Otherwise uses relative path `/api/...` (handled by Vite proxy in dev, and Vercel routing in prod).
+ * - Enforces default 45-second timeout via AbortController.
+ * - Always returns the HTTP Response object cleanly so callers can inspect real status codes and error JSON.
  */
-async function smartFetch(path, options = {}) {
+async function smartFetch(path, options = {}, timeoutMs = 45000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   const fetchOptions = {
     ...options,
+    signal: options.signal || controller.signal,
     credentials: 'include',
   };
 
-  try {
-    const res = await fetch(`${DIRECT_URL}${path}`, fetchOptions);
-    if (res.ok) return res;
+  const targetUrl = ENV_API_URL ? `${ENV_API_URL}${path}` : path;
 
-    // Fallback attempt: relative path proxy
-    const relRes = await fetch(path, fetchOptions);
-    return relRes;
+  try {
+    const res = await fetch(targetUrl, fetchOptions);
+    clearTimeout(timeoutId);
+    return res;
   } catch (err) {
-    // Second attempt: relative path proxy
-    try {
-      const relRes = await fetch(path, fetchOptions);
-      return relRes;
-    } catch (relErr) {
-      throw new Error("Unable to connect to News AI backend on port 8000. Please ensure 'python run_app.py' is running.");
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000}s. The server is taking too long to respond. Please try again.`);
     }
+
+    // On local development, if relative path failed completely (network unreachable), try direct port 8000
+    if (isLocalhost && !ENV_API_URL) {
+      try {
+        const directRes = await fetch(`http://127.0.0.1:8000${path}`, fetchOptions);
+        return directRes;
+      } catch (directErr) {
+        throw new Error("Unable to connect to News AI backend on port 8000. Please ensure 'python run_app.py' is running.");
+      }
+    }
+
+    throw new Error(`Network error connecting to API (${path}): ${err.message}`);
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -42,11 +67,17 @@ export async function sendChatMessage(message, conversationId = null, language =
         conversation_id: conversationId,
         language,
       }),
-    });
+    }, 50000);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      const detail = errorData.detail || `Server returned HTTP ${res.status}`;
-      throw new Error(`Backend Error: ${detail}`);
+      const detail = errorData.detail || errorData.message || (
+        res.status === 502
+          ? 'Server gateway timeout (502). The serverless function took too long to start or respond. Please retry in a moment.'
+          : res.status === 500
+          ? 'Internal server error (500). Please verify your environment variables and database configuration.'
+          : `Server returned HTTP ${res.status}`
+      );
+      throw new Error(detail);
     }
     return await res.json();
   } catch (err) {
@@ -108,48 +139,63 @@ export async function fetchChatSessions() {
   }
 }
 
-// Authentication API Services
+// Authentication & Client DB Services
 
-export async function sendOtp(identifier, authType = 'email', countryCode = '+91') {
-  const res = await smartFetch('/api/auth/send-otp', {
+export async function registerUser({ name, email, password, country = 'Global', preferences = {} }) {
+  const res = await smartFetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, auth_type: authType, country_code: countryCode }),
+    body: JSON.stringify({ name, email, password, country, preferences }),
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.detail || 'Failed to send OTP verification code.');
+    throw new Error(data.detail || 'Registration failed.');
   }
   return data;
 }
 
-export async function verifyOtp(identifier, authType, otpCode, countryCode = '+91') {
-  const res = await smartFetch('/api/auth/verify-otp', {
+export async function loginUser({ email, password }) {
+  const res = await smartFetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifier, auth_type: authType, otp_code: otpCode, country_code: countryCode }),
+    body: JSON.stringify({ email, password }),
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.detail || 'Invalid or expired OTP code.');
+    throw new Error(data.detail || 'Invalid email or password.');
   }
   return data;
 }
 
-export async function fetchCurrentUser() {
+export async function fetchClientsList() {
   try {
-    const res = await smartFetch('/api/auth/me');
-    if (!res.ok) return { authenticated: false, user: null };
-    return await res.json();
+    const res = await smartFetch('/api/auth/clients');
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.clients || [];
   } catch (err) {
-    return { authenticated: false, user: null };
+    console.error('fetchClientsList error:', err);
+    return [];
+  }
+}
+
+export async function fetchCurrentUser(email) {
+  try {
+    const url = email ? `/api/auth/me?email=${encodeURIComponent(email)}` : '/api/auth/me';
+    const res = await smartFetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.client || null;
+  } catch (err) {
+    return null;
   }
 }
 
 export async function logoutUser() {
   try {
-    const res = await smartFetch('/api/auth/logout', { method: 'POST' });
-    return await res.json();
+    localStorage.removeItem('news_ai_user');
+    localStorage.removeItem('news_ai_token');
+    return { status: 'success' };
   } catch (err) {
     return { status: 'success' };
   }

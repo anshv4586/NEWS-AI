@@ -1,248 +1,124 @@
 """
-FastAPI Authentication & User Bookmarks Router
+Authentication & Client API Routes for Global News AI
 
-Provides endpoints for:
-- POST /api/auth/send-otp
-- POST /api/auth/verify-otp
-- GET  /api/auth/me
-- POST /api/auth/logout
-- GET  /api/news/saved (User-bound bookmarks)
-- POST /api/news/saved
-- DELETE /api/news/saved
+Provides endpoints for client registration, authentication, profile inspection,
+and client management into the 'client_db' table.
 """
 
+from typing import Any, Dict, Optional
 import logging
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException, Request, Response, Depends, Cookie
-
-from src.auth import (
-    request_otp,
-    verify_otp,
-    create_session,
-    get_user_from_session,
-    destroy_session,
+from fastapi import APIRouter, HTTPException, Header, status
+from pydantic import BaseModel, EmailStr, Field
+from src.auth_repository import (
+    register_client,
+    authenticate_client,
+    get_client_by_id,
+    get_client_by_email,
+    get_all_clients,
 )
-from src.database import execute_query
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/auth", tags=["Authentication & User Session"])
-saved_router = APIRouter(prefix="/api/news/saved", tags=["User Saved Bookmarks"])
+
+router = APIRouter(prefix="/api/auth", tags=["Authentication & Client DB"])
 
 
-# Request / Response Schemas
-class SendOtpRequest(BaseModel):
-    identifier: str = Field(..., example="user@example.com")
-    auth_type: str = Field("email", example="email")  # 'email' or 'phone'
-    country_code: Optional[str] = Field("+91", example="+91")
+class RegisterRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100, description="Full Name of the client")
+    email: str = Field(..., description="Email address")
+    password: str = Field(..., min_length=6, description="Account password (min 6 characters)")
+    country: Optional[str] = Field("Global", description="Country of preference")
+    preferences: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Client user preferences")
 
 
-class VerifyOtpRequest(BaseModel):
-    identifier: str = Field(..., example="user@example.com")
-    auth_type: str = Field("email", example="email")
-    otp_code: str = Field(..., example="123456")
-    country_code: Optional[str] = Field("+91", example="+91")
+class LoginRequest(BaseModel):
+    email: str = Field(..., description="Registered email address")
+    password: str = Field(..., description="Account password")
 
 
-class UserResponse(BaseModel):
-    user_id: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    auth_type: str
-    created_at: Optional[str] = None
-
-
-class SaveArticleRequest(BaseModel):
-    url: str
-    title: str
-    source: str
-    published_at: Optional[str] = None
-
-
-# Dependency to retrieve active authenticated user from session cookie or Authorization header
-def get_current_user(
-    request: Request,
-    session_token: Optional[str] = Cookie(None)
-) -> Optional[Dict[str, Any]]:
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def post_register(req: RegisterRequest):
     """
-    Extracts session token from HTTP-only cookie or Bearer token and returns authenticated user object.
+    Registers a new client and persists their record into 'client_db'.
     """
-    token = session_token
-    if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1].strip()
-
-    if not token:
-        return None
-
-    return get_user_from_session(token)
-
-
-@router.post("/send-otp")
-def api_send_otp(payload: SendOtpRequest):
-    """
-    Validates identifier, rate-limits requests, generates 6-digit OTP,
-    hashes & stores OTP in DB, and delivers via Email/SMS or Dev Logger.
-    """
-    try:
-        success, message = request_otp(
-            identifier=payload.identifier,
-            auth_type=payload.auth_type,
-            country_code=payload.country_code or "+91"
-        )
-        if not success:
-            raise HTTPException(status_code=429, detail=message)
-        
-        return {
-            "status": "success",
-            "message": message,
-            "expires_in_seconds": 300,
-        }
-    except ValueError as val_err:
-        raise HTTPException(status_code=400, detail=str(val_err))
-    except HTTPException:
-        raise
-    except Exception as err:
-        logger.error(f"Error in send-otp: {err}")
-        raise HTTPException(status_code=500, detail="Internal server error sending OTP code.")
-
-
-@router.post("/verify-otp")
-def api_verify_otp(payload: VerifyOtpRequest, request: Request, response: Response):
-    """
-    Verifies entered 6-digit OTP against DB hash.
-    Upon success, creates session & sets HTTP-only Cookie.
-    """
-    try:
-        success, message, user = verify_otp(
-            identifier=payload.identifier,
-            auth_type=payload.auth_type,
-            plain_otp=payload.otp_code,
-            country_code=payload.country_code or "+91"
-        )
-        if not success or not user:
-            raise HTTPException(status_code=400, detail=message)
-
-        # Create session and set HTTP-only cookie
-        user_agent = request.headers.get("user-agent")
-        ip_address = request.client.host if request.client else None
-        session_id, expires_at = create_session(user["user_id"], user_agent, ip_address)
-
-        # Set HTTP-only Cookie
-        response.set_cookie(
-            key="session_token",
-            value=session_id,
-            httponly=True,
-            samesite="lax",
-            secure=False,  # Set to True in HTTPS production environments
-            max_age=7 * 86400
-        )
-
-        return {
-            "status": "success",
-            "message": "Authentication successful.",
-            "user": {
-                "user_id": user["user_id"],
-                "email": user.get("email"),
-                "phone": user.get("phone"),
-                "auth_type": user["auth_type"],
-                "created_at": str(user.get("created_at") or ""),
-            }
-        }
-    except HTTPException:
-        raise
-    except Exception as err:
-        logger.error(f"Error in verify-otp: {err}")
-        raise HTTPException(status_code=500, detail="Internal server error verifying OTP code.")
-
-
-@router.get("/me")
-def api_get_current_user(current_user: Optional[Dict[str, Any]] = Depends(get_current_user)):
-    """
-    Returns current authenticated user session data if valid.
-    """
-    if not current_user:
-        return {"authenticated": False, "user": None}
+    success, message, client_profile = register_client(
+        name=req.name,
+        email=req.email,
+        password=req.password,
+        country=req.country or "Global",
+        preferences=req.preferences,
+    )
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
     return {
-        "authenticated": True,
-        "user": {
-            "user_id": current_user["user_id"],
-            "email": current_user.get("email"),
-            "phone": current_user.get("phone"),
-            "auth_type": current_user["auth_type"],
-            "created_at": str(current_user.get("created_at") or ""),
-        }
+        "status": "success",
+        "message": message,
+        "client": client_profile,
+        "token": f"token_{client_profile.get('id')}_{hash(client_profile.get('email'))}",
     }
 
 
-@router.post("/logout")
-def api_logout(request: Request, response: Response, session_token: Optional[str] = Cookie(None)):
+@router.post("/login", status_code=status.HTTP_200_OK)
+def post_login(req: LoginRequest):
     """
-    Destroys active user session in DB and clears session cookie.
+    Authenticates client credentials against 'client_db' and returns active session.
     """
-    token = session_token
-    if not token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1].strip()
+    success, message, client_profile = authenticate_client(
+        email=req.email,
+        password=req.password,
+    )
+    if not success:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=message)
 
-    if token:
-        destroy_session(token)
+    return {
+        "status": "success",
+        "message": message,
+        "client": client_profile,
+        "token": f"token_{client_profile.get('id')}_{hash(client_profile.get('email'))}",
+    }
 
-    response.delete_cookie("session_token")
-    return {"status": "success", "message": "Logged out successfully."}
 
-
-# User-Bound Saved Bookmarks API Endpoints
-
-@saved_router.get("")
-def get_user_saved_articles(current_user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+@router.get("/me", status_code=status.HTTP_200_OK)
+def get_current_user(email: Optional[str] = None):
     """
-    Retrieves saved news bookmarks for the logged-in user.
+    Retrieves current client profile information.
     """
-    if not current_user:
-        return []
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email query parameter required.")
 
-    user_id = current_user["user_id"]
-    query = """
-        SELECT article_url as url, title, source, published_at 
-        FROM user_saved_articles 
-        WHERE user_id = %s 
-        ORDER BY saved_at DESC
-    """
-    articles = execute_query(query, (user_id,), fetchall=True)
-    return articles or []
+    client = get_client_by_email(email)
+    if not client:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found in client_db.")
+
+    return {
+        "status": "success",
+        "client": client,
+    }
 
 
-@saved_router.post("")
-def save_user_article(payload: SaveArticleRequest, current_user: Optional[Dict[str, Any]] = Depends(get_current_user)):
+@router.get("/clients", status_code=status.HTTP_200_OK)
+def list_clients(limit: int = 50):
     """
-    Saves a news article bookmark for the logged-in user.
+    Retrieves registered clients from 'client_db' for administrative oversight.
     """
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required to save articles.")
+    clients = get_all_clients(limit=limit)
+    return {
+        "status": "success",
+        "count": len(clients),
+        "clients": clients,
+    }
 
-    user_id = current_user["user_id"]
-    query = """
-        INSERT INTO user_saved_articles (user_id, article_url, title, source, published_at)
-        VALUES (%s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE title = VALUES(title), source = VALUES(source)
-    """
-    execute_query(query, (user_id, payload.url, payload.title, payload.source, payload.published_at), commit=True)
+
+# Router for Saved/Bookmarked Articles
+saved_router = APIRouter(prefix="/api/saved", tags=["Saved Articles"])
+
+_SAVED_ARTICLES_MEMORY = []
+
+@saved_router.get("", status_code=status.HTTP_200_OK)
+def get_saved_articles():
+    return {"status": "success", "articles": _SAVED_ARTICLES_MEMORY}
+
+@saved_router.post("", status_code=status.HTTP_201_CREATED)
+def add_saved_article(article: Dict[str, Any]):
+    _SAVED_ARTICLES_MEMORY.append(article)
     return {"status": "success", "message": "Article saved successfully."}
-
-
-@saved_router.delete("")
-def delete_user_article(url: str, current_user: Optional[Dict[str, Any]] = Depends(get_current_user)):
-    """
-    Removes a news article bookmark for the logged-in user.
-    """
-    if not current_user:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-
-    user_id = current_user["user_id"]
-    query = "DELETE FROM user_saved_articles WHERE user_id = %s AND article_url = %s"
-    execute_query(query, (user_id, url), commit=True)
-    return {"status": "success", "message": "Article bookmark removed."}

@@ -28,12 +28,19 @@ from src.api.routes_chat import router as chat_router
 from src.api.routes_news import router as news_router
 from src.api.routes_voice import router as voice_router
 from src.api.routes_auth import router as auth_router, saved_router
+from src.auth_repository import init_client_db
 
 logger = logging.getLogger(__name__)
 
+# Initialize client database table
+try:
+    init_client_db()
+except Exception as init_err:
+    logger.warning(f"Could not auto-initialize client_db on import: {init_err}")
+
 app = FastAPI(
     title="Global News AI — Conversational REST API",
-    description="Multilingual RAG Grounded News Engine API supporting English, Hindi, Hinglish, Voice & OTP Auth.",
+    description="Multilingual RAG Grounded News Engine API supporting English, Hindi, Hinglish, Voice & Client Authentication.",
     version="1.0.0",
 )
 
@@ -56,11 +63,15 @@ app.include_router(saved_router)
 
 
 @app.get("/")
+@app.get("/api/health")
+@app.get("/health")
 def read_root():
+    from src.database import _ACTIVE_DRIVER
     return {
         "project": "Global News AI",
         "phase": "Phase 10 — ChatGPT-like Web Application & FastAPI Backend",
         "status": "online",
+        "database_driver": _ACTIVE_DRIVER or "auto",
         "docs_url": "/docs",
     }
 

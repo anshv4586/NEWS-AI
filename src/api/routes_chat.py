@@ -128,7 +128,15 @@ def post_chat(payload: ChatRequest):
 
     except Exception as err:
         logger.error(f"API Chat Error: {err}")
-        raise HTTPException(status_code=500, detail=f"Internal RAG pipeline error: {err}")
+        return ChatResponse(
+            conversation_id=cid,
+            user_message=query,
+            answer=f"I'm currently unable to retrieve the latest news for that query ({str(err)}). Please ensure your LLM API key is configured in your hosting environment settings, or try again in a moment.",
+            status="error",
+            language=state.current_language or "English",
+            sources=[],
+            turn_count=len(state.turns),
+        )
 
 
 @router.get("/sessions")
