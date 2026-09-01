@@ -196,7 +196,7 @@ def find_article_by_headline_match(query: str) -> Optional[Dict[str, Any]]:
     try:
         from src.database import execute_query
         rows = execute_query(
-            "SELECT * FROM news WHERE published_at IS NOT NULL AND summary IS NOT NULL AND LENGTH(TRIM(summary)) >= 30 ORDER BY id DESC LIMIT 250",
+            "SELECT * FROM news WHERE published_at IS NOT NULL AND summary IS NOT NULL AND LENGTH(TRIM(summary)) >= 30 ORDER BY id DESC LIMIT 1000",
             fetchall=True
         )
         if not rows:
@@ -214,8 +214,13 @@ def find_article_by_headline_match(query: str) -> Optional[Dict[str, Any]]:
 
             # Exact or Substring match
             if norm_title == norm_target or norm_target in norm_title or norm_title in norm_target:
-                r["rank"] = 1
-                return r
+                matched_art = dict(r)
+                if matched_art.get("published_at") and hasattr(matched_art["published_at"], "strftime"):
+                    matched_art["published_at"] = matched_art["published_at"].strftime("%Y-%m-%d %H:%M:%S")
+                elif matched_art.get("published_at"):
+                    matched_art["published_at"] = str(matched_art["published_at"]).strip()
+                matched_art["rank"] = 1
+                return matched_art
 
             # Jaccard word overlap
             title_words = set(norm_title.split())
@@ -223,9 +228,13 @@ def find_article_by_headline_match(query: str) -> Optional[Dict[str, Any]]:
                 overlap = len(title_words.intersection(target_words)) / max(len(target_words), 1)
                 if overlap >= 0.60 and overlap > best_score:
                     best_score = overlap
-                    best_match = r
+                    best_match = dict(r)
 
         if best_match and best_score >= 0.60:
+            if best_match.get("published_at") and hasattr(best_match["published_at"], "strftime"):
+                best_match["published_at"] = best_match["published_at"].strftime("%Y-%m-%d %H:%M:%S")
+            elif best_match.get("published_at"):
+                best_match["published_at"] = str(best_match["published_at"]).strip()
             best_match["rank"] = 1
             return best_match
 

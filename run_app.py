@@ -69,6 +69,7 @@ def main():
         "127.0.0.1",
         "--port",
         "8000",
+        "--reload",
     ]
 
     scheduler_cmd = [

@@ -23,13 +23,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/news", tags=["News Feed Data Access"])
 
 
+def format_pub_date(val: Any) -> Optional[str]:
+    """
+    Formats raw datetime or string representations into clean ISO datetime strings.
+    """
+    if val is None:
+        return None
+    if hasattr(val, "strftime"):
+        return val.strftime("%Y-%m-%d %H:%M:%S")
+    s = str(val).strip()
+    return s if s else None
+
+
 class NewsArticleResponse(BaseModel):
     article_id: str
     title: str
     summary: Optional[str] = None
     url: str
     source: str
-    published_at: Optional[str] = None
+    published_at: Optional[Any] = None
     category: Optional[str] = None
     language: Optional[str] = None
     country: Optional[str] = None
@@ -79,7 +91,7 @@ def get_latest(limit: int = 10):
                 summary=art.get("summary"),
                 url=art.get("url", ""),
                 source=art.get("source", "Unknown"),
-                published_at=str(art.get("published_at") or ""),
+                published_at=format_pub_date(art.get("published_at")),
                 category=art.get("category", "World"),
                 language=art.get("language", "English"),
                 country=art.get("country", "Global"),
@@ -93,7 +105,8 @@ def get_latest(limit: int = 10):
             from config.feeds import RSS_FEEDS
             from src.rss_collector import collect_all_feeds
             import hashlib
-            raw = collect_all_feeds(RSS_FEEDS[:2])
+            fallback_dict = {"world": RSS_FEEDS.get("world", [])[:2]}
+            raw = collect_all_feeds(fallback_dict)
             return [
                 NewsArticleResponse(
                     article_id=f"rss_{hashlib.md5((item.get('link') or '').encode()).hexdigest()[:8]}",
@@ -101,7 +114,7 @@ def get_latest(limit: int = 10):
                     summary=item.get("summary"),
                     url=item.get("link", "#"),
                     source=item.get("source", "Global News"),
-                    published_at=item.get("published", "Recently"),
+                    published_at=format_pub_date(item.get("published")),
                     category="World",
                     language="English",
                     country="Global",
@@ -127,7 +140,7 @@ def get_by_category(category: str, limit: int = 10):
                 summary=art.get("summary"),
                 url=art.get("url", ""),
                 source=art.get("source", "Unknown"),
-                published_at=str(art.get("published_at") or ""),
+                published_at=format_pub_date(art.get("published_at")),
                 category=art.get("category", "World"),
                 language=art.get("language", "English"),
                 country=art.get("country", "Global"),
@@ -154,7 +167,7 @@ def get_by_source(source: str, limit: int = 10):
                 summary=art.get("summary"),
                 url=art.get("url", ""),
                 source=art.get("source", "Unknown"),
-                published_at=str(art.get("published_at") or ""),
+                published_at=format_pub_date(art.get("published_at")),
                 category=art.get("category", "World"),
                 language=art.get("language", "English"),
                 country=art.get("country", "Global"),

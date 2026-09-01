@@ -34,20 +34,31 @@ REFUSAL_MESSAGE = (
 )
 
 
-def format_sources_list(articles: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def format_sources_list(articles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Constructs a verified list of authentic news sources with MySQL metadata and URLs.
     """
     sources = []
     for art in articles:
         rank = art.get("rank", 1)
+        pub_raw = art.get("published_at")
+        if pub_raw is not None:
+            if hasattr(pub_raw, "strftime"):
+                pub_str = pub_raw.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                pub_str = str(pub_raw).strip()
+        else:
+            pub_str = ""
+
         sources.append({
             "citation": f"[{rank}]",
-            "source": art.get("source", "Unknown"),
-            "title": art.get("title", ""),
-            "url": art.get("url", ""),
-            "published_at": art.get("published_at", ""),
-            "country": art.get("country", "Global"),
+            "source": str(art.get("source") or "Unknown"),
+            "title": str(art.get("title") or ""),
+            "url": str(art.get("url") or "#"),
+            "published_at": pub_str,
+            "category": str(art.get("category") or "World"),
+            "country": str(art.get("country") or "Global"),
+            "snippet": str(art.get("snippet") or art.get("summary") or "")[:300],
         })
     return sources
 

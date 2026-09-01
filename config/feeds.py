@@ -22,6 +22,18 @@ RSS_FEEDS = {
         {
             "source": "Google News World",
             "url": "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en"
+        },
+        {
+            "source": "CNN World",
+            "url": "http://rss.cnn.com/rss/edition_world.rss"
+        },
+        {
+            "source": "NPR News",
+            "url": "https://feeds.npr.org/1001/rss.xml"
+        },
+        {
+            "source": "DW World News",
+            "url": "https://rss.dw.com/rdf/rss-en-all"
         }
     ],
     "india": [
@@ -40,6 +52,18 @@ RSS_FEEDS = {
         {
             "source": "NDTV News",
             "url": "https://feeds.feedburner.com/ndtvnews-top-stories"
+        },
+        {
+            "source": "Hindustan Times",
+            "url": "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml"
+        },
+        {
+            "source": "Indian Express",
+            "url": "https://indianexpress.com/feed/"
+        },
+        {
+            "source": "LiveMint",
+            "url": "https://www.livemint.com/rss/news"
         }
     ],
     "technology": [
@@ -58,6 +82,14 @@ RSS_FEEDS = {
         {
             "source": "Wired",
             "url": "https://www.wired.com/feed/rss"
+        },
+        {
+            "source": "Ars Technica",
+            "url": "https://feeds.arstechnica.com/arstechnica/index"
+        },
+        {
+            "source": "Engadget",
+            "url": "https://www.engadget.com/rss.xml"
         }
     ],
     "business": [
@@ -72,6 +104,14 @@ RSS_FEEDS = {
         {
             "source": "Google News Business",
             "url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en"
+        },
+        {
+            "source": "MarketWatch",
+            "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories"
+        },
+        {
+            "source": "Yahoo Finance",
+            "url": "https://finance.yahoo.com/news/rssindex"
         }
     ],
     "sports": [
@@ -82,6 +122,14 @@ RSS_FEEDS = {
         {
             "source": "Google News Sports",
             "url": "https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFp1ZEdvU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en"
+        },
+        {
+            "source": "ESPN",
+            "url": "https://www.espn.com/espn/rss/news"
+        },
+        {
+            "source": "Sky Sports",
+            "url": "https://www.skysports.com/rss/12040"
         }
     ],
     "climate": [
@@ -92,7 +140,14 @@ RSS_FEEDS = {
         {
             "source": "Phys.org Earth News",
             "url": "https://phys.org/rss-feed/earth-news/"
+        },
+        {
+            "source": "ScienceDaily",
+            "url": "https://www.sciencedaily.com/rss/top/science.xml"
+        },
+        {
+            "source": "NASA News",
+            "url": "https://www.nasa.gov/news-release/feed/"
         }
     ]
 }
-

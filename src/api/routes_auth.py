@@ -110,15 +110,28 @@ def list_clients(limit: int = 50):
 
 
 # Router for Saved/Bookmarked Articles
-saved_router = APIRouter(prefix="/api/saved", tags=["Saved Articles"])
+saved_router = APIRouter(tags=["Saved Articles"])
 
 _SAVED_ARTICLES_MEMORY = []
 
-@saved_router.get("", status_code=status.HTTP_200_OK)
+@saved_router.get("/api/saved", status_code=status.HTTP_200_OK)
+@saved_router.get("/api/news/saved", status_code=status.HTTP_200_OK)
 def get_saved_articles():
-    return {"status": "success", "articles": _SAVED_ARTICLES_MEMORY}
+    return _SAVED_ARTICLES_MEMORY
 
-@saved_router.post("", status_code=status.HTTP_201_CREATED)
+@saved_router.post("/api/saved", status_code=status.HTTP_201_CREATED)
+@saved_router.post("/api/news/saved", status_code=status.HTTP_201_CREATED)
 def add_saved_article(article: Dict[str, Any]):
-    _SAVED_ARTICLES_MEMORY.append(article)
+    # Prevent exact URL duplicates
+    url = article.get("url")
+    if url and not any(a.get("url") == url for a in _SAVED_ARTICLES_MEMORY):
+        _SAVED_ARTICLES_MEMORY.append(article)
     return {"status": "success", "message": "Article saved successfully."}
+
+@saved_router.delete("/api/saved", status_code=status.HTTP_200_OK)
+@saved_router.delete("/api/news/saved", status_code=status.HTTP_200_OK)
+def remove_saved_article(url: Optional[str] = None):
+    global _SAVED_ARTICLES_MEMORY
+    if url:
+        _SAVED_ARTICLES_MEMORY = [a for a in _SAVED_ARTICLES_MEMORY if a.get("url") != url]
+    return {"status": "success", "message": "Article removed."}

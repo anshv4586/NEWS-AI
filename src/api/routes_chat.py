@@ -53,11 +53,23 @@ class ChatRequest(BaseModel):
     language: Optional[str] = Field("auto", description="Target language ('auto', 'English', 'Hindi', 'Hinglish')", example="auto")
 
 
+def format_published_at_str(val: Any) -> Optional[str]:
+    """
+    Safely converts datetime objects or arbitrary timestamp representations to a clean string.
+    """
+    if val is None:
+        return None
+    if hasattr(val, "strftime"):
+        return val.strftime("%Y-%m-%d %H:%M:%S")
+    s = str(val).strip()
+    return s if s else None
+
+
 class SourceItem(BaseModel):
     title: str
     source: str
     url: str
-    published_at: Optional[str] = None
+    published_at: Optional[Any] = None
     category: Optional[str] = None
     country: Optional[str] = None
     snippet: Optional[str] = None
@@ -103,17 +115,17 @@ def post_chat(payload: ChatRequest):
         # Call Phase 6/7 Conversational RAG Brain
         rag_res = answer_conversational_news(query, state=state)
 
-        # Structure source cards
+        # Structure source cards safely
         structured_sources = []
         for src in rag_res.get("sources", []):
             structured_sources.append(SourceItem(
-                title=src.get("title", "News Article"),
-                source=src.get("source", "News Publisher"),
-                url=src.get("url", "#"),
-                published_at=src.get("published_at"),
-                category=src.get("category"),
-                country=src.get("country"),
-                snippet=src.get("snippet"),
+                title=str(src.get("title") or "News Article"),
+                source=str(src.get("source") or "News Publisher"),
+                url=str(src.get("url") or "#"),
+                published_at=format_published_at_str(src.get("published_at")),
+                category=str(src.get("category")) if src.get("category") else None,
+                country=str(src.get("country")) if src.get("country") else None,
+                snippet=str(src.get("snippet")) if src.get("snippet") else None,
             ))
 
         return ChatResponse(
@@ -219,13 +231,13 @@ async def post_chat_stream(payload: ChatRequest):
             structured_sources = []
             for src in rag_res.get("sources", []):
                 structured_sources.append({
-                    "title": src.get("title", "News Article"),
-                    "source": src.get("source", "News Publisher"),
-                    "url": src.get("url", "#"),
-                    "published_at": src.get("published_at"),
-                    "category": src.get("category"),
-                    "country": src.get("country"),
-                    "snippet": src.get("snippet"),
+                    "title": str(src.get("title") or "News Article"),
+                    "source": str(src.get("source") or "News Publisher"),
+                    "url": str(src.get("url") or "#"),
+                    "published_at": format_published_at_str(src.get("published_at")),
+                    "category": str(src.get("category")) if src.get("category") else None,
+                    "country": str(src.get("country")) if src.get("country") else None,
+                    "snippet": str(src.get("snippet")) if src.get("snippet") else None,
                 })
 
             # Send metadata payload first
@@ -236,7 +248,7 @@ async def post_chat_stream(payload: ChatRequest):
                 "sources": structured_sources,
                 "status": rag_res.get("status", "success"),
             }
-            yield f"data: {json.dumps(meta_payload)}\n\n"
+            yield f"data: {json.dumps(meta_payload, default=str)}\n\n"
             await asyncio.sleep(0.02)
 
             full_answer = rag_res.get("answer", "")

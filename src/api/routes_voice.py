@@ -89,13 +89,33 @@ async def post_voice_chat(
 
         cleanup_temp_audio_file(temp_filepath)
 
+        structured_sources = []
+        for src in rag_res.get("sources", []):
+            pub_val = src.get("published_at")
+            if hasattr(pub_val, "strftime"):
+                pub_val = pub_val.strftime("%Y-%m-%d %H:%M:%S")
+            elif pub_val is not None:
+                pub_val = str(pub_val).strip()
+            else:
+                pub_val = None
+
+            structured_sources.append({
+                "title": str(src.get("title") or "News Article"),
+                "source": str(src.get("source") or "News Publisher"),
+                "url": str(src.get("url") or "#"),
+                "published_at": pub_val,
+                "category": str(src.get("category")) if src.get("category") else None,
+                "country": str(src.get("country")) if src.get("country") else None,
+                "snippet": str(src.get("snippet")) if src.get("snippet") else None,
+            })
+
         return {
             "status": "success",
             "conversation_id": cid,
             "user_message": transcribed_text,
             "answer": answer_text,
             "language": target_lang,
-            "sources": rag_res.get("sources", []),
+            "sources": structured_sources,
             "audio_base64": audio_b64,
         }
 
