@@ -1,4 +1,4 @@
-# Global News AI - Core Dependencies
+# Global News AI - Core Dependencies for Vercel Serverless Function
 fastapi>=0.100.0
 uvicorn>=0.22.0
 pydantic>=2.0.0
@@ -24,4 +24,3 @@ openai>=1.0.0
 gTTS>=2.4.0
 requests>=2.31.0
 SpeechRecognition>=3.10.0
-

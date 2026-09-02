@@ -63,6 +63,8 @@ app.include_router(saved_router)
 
 
 @app.get("/")
+@app.get("/api")
+@app.get("/api/")
 @app.get("/api/health")
 @app.get("/health")
 def read_root():
